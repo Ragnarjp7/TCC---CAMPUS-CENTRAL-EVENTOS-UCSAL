@@ -13,7 +13,9 @@ public interface EventoRepository
     @Query("SELECT e FROM Evento e JOIN FETCH e.categoria") 
     List<Evento> findAllComCategoria();
     
-    List<Evento> findByStatusIgnoreCase(String status);
+    List<Evento> findByStatus(Evento.StatusEvento status);
 
     List<Evento> findByCategoriaId(Long categoriaId);
+
+    Long countById(Long id);
 }

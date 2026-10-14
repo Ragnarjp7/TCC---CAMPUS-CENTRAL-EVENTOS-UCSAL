@@ -5,8 +5,10 @@ import br.edu.ucsal.campus.service.EventoService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -40,7 +42,7 @@ public class EventoController {
     @GetMapping("/status/{status}")
     public ResponseEntity<List<Evento>> listarPorStatus(
             @PathVariable String status) {
-        return ResponseEntity.ok(eventoService.listarPorStatus(status));
+        return ResponseEntity.ok(eventoService.listarPorStatus(Evento.StatusEvento.valueOf(status.toUpperCase())));
     }
 
     // Listar eventos por categoria
@@ -59,5 +61,24 @@ public class EventoController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(novoEvento);
+    }
+
+    //Atualizar dados evento
+    @PutMapping("/{id}")
+    public ResponseEntity<Evento> atualizarEvento(@PathVariable Long id, @RequestBody Evento eventoAtualizado) {
+    return ResponseEntity.ok(eventoService.atualizarEvento(id, eventoAtualizado));
+    }
+
+    // @PutMapping("/professores/editar")
+    // public ResponseEntity<?> editar(@RequestBody Professor p){
+    //     return service.editar(p);
+    // }
+
+    //Atualizar status do evento (Deve ser feito apenas pelo CAEX)
+    @PutMapping ("/{id}/status")
+    public ResponseEntity<?> atualizarStatus(
+            @PathVariable Long id,
+            @RequestBody Evento.StatusEvento novoStatus) {
+        return ResponseEntity.ok(novoStatus);
     }
 }

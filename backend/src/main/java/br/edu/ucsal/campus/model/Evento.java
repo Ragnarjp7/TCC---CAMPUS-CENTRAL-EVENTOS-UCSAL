@@ -1,7 +1,18 @@
 package br.edu.ucsal.campus.model;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import jakarta.persistence.Id;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Column;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import java.time.LocalDateTime;
+
 
 @Entity
 @Table(name = "eventos")
@@ -29,8 +40,18 @@ public class Evento {
     @Column(nullable = false, length = 30)
     private String modalidade;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
-    private String status;
+    private StatusEvento status = StatusEvento.AGUARDANDO_ANALISE;
+
+    public enum StatusEvento {
+        AGUARDANDO_ANALISE,
+        APROVADO,
+        AJUSTES_SOLICITADOS,
+        REJEITADO,
+        CANCELADO,
+        ENCERRADO
+    }
 
     private Integer capacidade;
 
@@ -39,6 +60,10 @@ public class Evento {
     private Categoria categoria;
 
     public Evento() {
+    }
+
+    public void setId(Long id) {
+        this.id = id;
     }
 
     public Long getId() {
@@ -93,14 +118,6 @@ public class Evento {
         this.modalidade = modalidade;
     }
 
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
     public Integer getCapacidade() {
         return capacidade;
     }
@@ -115,5 +132,13 @@ public class Evento {
 
     public void setCategoria(Categoria categoria) {
         this.categoria = categoria;
+    }
+
+    public StatusEvento getStatus() {
+        return status;
+    }
+
+    public void setStatus(StatusEvento status) {
+        this.status = status;
     }
 }
