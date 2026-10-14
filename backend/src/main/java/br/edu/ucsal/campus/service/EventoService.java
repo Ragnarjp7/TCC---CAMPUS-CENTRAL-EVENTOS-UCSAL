@@ -1,9 +1,10 @@
 package br.edu.ucsal.campus.service;
 
-import br.edu.ucsal.campus.entity.Categoria;
-import br.edu.ucsal.campus.entity.Evento;
+import br.edu.ucsal.campus.model.Categoria;
+import br.edu.ucsal.campus.model.Evento;
 import br.edu.ucsal.campus.repository.CategoriaRepository;
 import br.edu.ucsal.campus.repository.EventoRepository;
+
 import org.springframework.stereotype.Service;
 import java.util.List;
 
@@ -21,7 +22,7 @@ public class EventoService {
     }
 
     public List<Evento> listarTodos() {
-        return eventoRepository.findAll();
+        return eventoRepository.findAllComCategoria();
     }
 
     public Evento buscarPorId(Long id) {

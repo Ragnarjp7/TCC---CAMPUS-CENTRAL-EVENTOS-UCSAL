@@ -1,4 +1,4 @@
-package br.edu.ucsal.campus.entity;
+package br.edu.ucsal.campus.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
