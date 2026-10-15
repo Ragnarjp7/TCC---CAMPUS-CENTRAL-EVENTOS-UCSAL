@@ -1,49 +1,79 @@
 package br.edu.ucsal.campus.service;
 
+import br.edu.ucsal.campus.dto.DTOAlunoRequest;
+import br.edu.ucsal.campus.dto.DTOAlunoResponse;
 import br.edu.ucsal.campus.exception.ConflitoException;
 import br.edu.ucsal.campus.exception.NaoEncontradoException;
 import br.edu.ucsal.campus.model.Aluno;
+import br.edu.ucsal.campus.model.Curso;
+import br.edu.ucsal.campus.model.Usuario;
+import br.edu.ucsal.campus.model.enums.Papel;
 import br.edu.ucsal.campus.repository.AlunoRepository;
+import br.edu.ucsal.campus.repository.CursoRepository;
+import br.edu.ucsal.campus.repository.UsuarioRepository;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class AlunoService {
 
     private final AlunoRepository alunoRepository;
+    private final CursoRepository cursoRepository;
+    private final UsuarioRepository usuarioRepository;
 
-    public AlunoService(AlunoRepository alunoRepository) {
+    public AlunoService(AlunoRepository alunoRepository, CursoRepository cursoRepository, UsuarioRepository usuarioRepository) {
         this.alunoRepository = alunoRepository;
+        this.cursoRepository = cursoRepository;
+        this.usuarioRepository = usuarioRepository;
     }
 
-    public List<Aluno> listarTodos() {
-        return alunoRepository.findAll();
+
+    @Transactional(readOnly = true)
+    public List<DTOAlunoResponse> listarTodos() {
+        return alunoRepository.findAllCompleto().stream().map(DTOAlunoResponse::de).toList();
     }
 
-    public Aluno buscarPorId(Long id) {
-        return alunoRepository.findById(id).orElseThrow(() -> new NaoEncontradoException("Aluno não encontrado"));
+    @Transactional(readOnly = true)
+    public DTOAlunoResponse buscarPorId(Long id) {
+        return DTOAlunoResponse.de(alunoRepository.findById(id).orElseThrow(() -> new NaoEncontradoException("Aluno não encontrado")));
     }
 
     @Transactional
-    public Aluno criar(Aluno aluno) {
-        if (vazio(aluno.getNome()) || vazio(aluno.getEmail()) || vazio(aluno.getMatricula())) {
-            throw new IllegalArgumentException("Nome, email e matrícula são obrigatórios");
+    public DTOAlunoResponse criar(DTOAlunoRequest aluno) {
+        if (vazio(aluno.nome()) || vazio(aluno.email()) || vazio(aluno.matricula()) || aluno.cursoId() == null) {
+            throw new IllegalArgumentException("Nome, email, matrícula e curso são obrigatórios");
         }
-        if (!aluno.getEmail().contains("@")) {
+        if (!aluno.email().contains("@")) {
             throw new IllegalArgumentException("Email inválido");
         }
-        if (alunoRepository.existsByEmailIgnoreCase(aluno.getEmail())) {
-            throw new ConflitoException("Já existe um aluno com esse email");
+        if (usuarioRepository.existsByEmailIgnoreCase(aluno.email())) {
+            throw new ConflitoException("Já existe um usuário com esse email");
         }
-        if (alunoRepository.existsByMatricula(aluno.getMatricula())) {
+        if (alunoRepository.existsByMatricula(aluno.matricula())) {
             throw new ConflitoException("Já existe um aluno com essa matrícula");
         }
 
-        aluno.setId(null); // garante que é um novo registro
-        return alunoRepository.save(aluno);
+        Curso curso = cursoRepository.findById(aluno.cursoId())
+                .orElseThrow(() -> new NaoEncontradoException("Curso não encontrado"));
+
+        Usuario usuario = new Usuario();
+        usuario.setNome(aluno.nome().trim());
+        usuario.setEmail(aluno.email().trim());
+        usuario.setPapeis(Set.of(Papel.ALUNO));
+        usuario = usuarioRepository.save(usuario);
+
+        Aluno a = new Aluno();
+        a.setUsuario(usuario);
+        a.setMatricula(aluno.matricula().trim());
+        a.setCurso(curso);
+
+        return DTOAlunoResponse.de(alunoRepository.save(a));
     }
+    
 
     private boolean vazio(String s) {
         return s == null || s.isBlank();

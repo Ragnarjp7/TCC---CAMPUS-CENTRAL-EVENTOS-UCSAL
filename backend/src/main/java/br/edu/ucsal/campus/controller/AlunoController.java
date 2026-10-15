@@ -1,7 +1,7 @@
 package br.edu.ucsal.campus.controller;
 
+import br.edu.ucsal.campus.dto.DTOAlunoResponse;
 import br.edu.ucsal.campus.dto.DTOInscricaoResponse;
-import br.edu.ucsal.campus.model.Aluno;
 import br.edu.ucsal.campus.service.AlunoService;
 import br.edu.ucsal.campus.service.InscricaoService;
 import org.springframework.http.HttpStatus;
@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import br.edu.ucsal.campus.dto.DTOAlunoRequest;
 
 import java.util.List;
 
@@ -28,17 +29,17 @@ public class AlunoController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Aluno>> listarTodos() {
+    public ResponseEntity<List<DTOAlunoResponse>> listarTodos() {
         return ResponseEntity.ok(alunoService.listarTodos());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Aluno> buscarPorId(@PathVariable Long id) {
+    public ResponseEntity<DTOAlunoResponse> buscarPorId(@PathVariable Long id) {
         return ResponseEntity.ok(alunoService.buscarPorId(id));
     }
 
     @PostMapping
-    public ResponseEntity<Aluno> criar(@RequestBody Aluno aluno) {
+    public ResponseEntity<DTOAlunoResponse> criar(@RequestBody DTOAlunoRequest aluno) {
         return ResponseEntity.status(HttpStatus.CREATED).body(alunoService.criar(aluno));
     }
 
