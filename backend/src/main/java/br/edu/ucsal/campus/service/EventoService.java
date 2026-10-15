@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import br.edu.ucsal.campus.exception.EventoNaoEncontradoException;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -102,5 +103,18 @@ public class EventoService {
 
     private boolean isVazio(String s) {
         return s == null || s.isBlank();
+    }
+
+    //Eventos que acontecem em um dia
+    public List<Evento> listarPorData(LocalDate data){
+        return eventoRepository.findByPedido(data.atStartOfDay(), data.plusDays(1).atStartOfDay());
+    }
+
+    //Eventos que acontecem dentro de uma periodo
+    public List<Evento> listarPorPeriodo(LocalDate inicio, LocalDate fim){
+        if (fim.isBefore(inicio)){
+            throw new IllegalArgumentException("A data final deve ser posterior à data inicial");
+        }
+        return eventoRepository.findByPedido(inicio.atStartOfDay(), fim.plusDays(1).atStartOfDay());
     }
 }
