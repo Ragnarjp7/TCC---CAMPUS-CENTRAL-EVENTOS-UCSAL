@@ -6,10 +6,16 @@ import br.edu.ucsal.campus.repository.CategoriaRepository;
 import br.edu.ucsal.campus.repository.EventoRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import br.edu.ucsal.campus.exception.ConflitoException;
 import br.edu.ucsal.campus.exception.EventoNaoEncontradoException;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 public class EventoService {
@@ -49,7 +55,7 @@ public class EventoService {
                 .orElseThrow(() -> new IllegalArgumentException("Categoria não encontrada"));
 
         evento.setCategoria(categoria);
-        evento.setStatus(Evento.StatusEvento.APROVADO);
+        evento.setStatus(Evento.StatusEvento.AGUARDANDO_ANALISE);
 
         return eventoRepository.save(evento);
     }
@@ -74,6 +80,45 @@ public class EventoService {
         evento.setCategoria(categoria);
 
         // status NÃO é alterado aqui (deve ser feito só pelo CAEX)
+        return eventoRepository.save(evento);
+    }
+
+    private static final Map<Evento.StatusEvento, Set<Evento.StatusEvento>> TRANSICOES = Map.of(
+        Evento.StatusEvento.AGUARDANDO_ANALISE,
+        EnumSet.of(Evento.StatusEvento.APROVADO, Evento.StatusEvento.AJUSTES_SOLICITADOS,Evento.StatusEvento.REJEITADO),
+
+        Evento.StatusEvento.AJUSTES_SOLICITADOS,
+        EnumSet.of(Evento.StatusEvento.AGUARDANDO_ANALISE, Evento.StatusEvento.REJEITADO, Evento.StatusEvento.CANCELADO),
+
+        Evento.StatusEvento.APROVADO,
+        EnumSet.of(Evento.StatusEvento.CANCELADO, Evento.StatusEvento.ENCERRADO),
+
+        Evento.StatusEvento.REJEITADO, EnumSet.noneOf(Evento.StatusEvento.class),
+        Evento.StatusEvento.CANCELADO, EnumSet.noneOf(Evento.StatusEvento.class),
+        Evento.StatusEvento.ENCERRADO, EnumSet.noneOf(Evento.StatusEvento.class)
+    );
+
+    @Transactional
+    public Evento atualizarStatus(Long id, Evento.StatusEvento novoStatus) {
+        if (novoStatus == null) {
+            throw new IllegalArgumentException("O status é obrigatório");
+        }
+
+        Evento evento = eventoRepository.findById(id).orElseThrow(() -> new EventoNaoEncontradoException("Evento não encontrado"));
+
+        Evento.StatusEvento atual = evento.getStatus();
+
+        if (!TRANSICOES.get(atual).contains(novoStatus)) {
+            throw new ConflitoException(
+                    "Não é possível mudar o status de " + atual + " para " + novoStatus);
+        }
+
+        if (novoStatus == Evento.StatusEvento.APROVADO && evento.getDataFim().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException(
+                    "Não é possível aprovar um evento que já terminou");
+        }
+
+        evento.setStatus(novoStatus);
         return eventoRepository.save(evento);
     }
 

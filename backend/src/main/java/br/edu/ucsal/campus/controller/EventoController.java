@@ -1,5 +1,7 @@
 package br.edu.ucsal.campus.controller;
 
+import br.edu.ucsal.campus.dto.DTOEventoStatusResponse;
+import br.edu.ucsal.campus.dto.DTOStatusRequest;
 import br.edu.ucsal.campus.model.Evento;
 import br.edu.ucsal.campus.service.EventoService;
 
@@ -80,11 +82,11 @@ public class EventoController {
     }
 
     //Atualizar status do evento (Deve ser feito apenas pelo CAEX)
-    @PutMapping ("/{id}/status")
-    public ResponseEntity<?> atualizarStatus(
-            @PathVariable Long id,
-            @RequestBody Evento.StatusEvento novoStatus) {
-        return ResponseEntity.ok(novoStatus);
+    @PutMapping("/{id}/status")
+    public ResponseEntity<DTOEventoStatusResponse> atualizarStatus(@PathVariable Long id,@RequestBody DTOStatusRequest request) {
+        
+        Evento atualizado = eventoService.atualizarStatus(id, request.status());
+        return ResponseEntity.ok(DTOEventoStatusResponse.de(atualizado));
     }
 
     
