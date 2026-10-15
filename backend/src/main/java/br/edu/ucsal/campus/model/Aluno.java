@@ -1,11 +1,18 @@
 package br.edu.ucsal.campus.model;
 
+import br.edu.ucsal.campus.model.enums.SituacaoAcademica;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.Column;
 
 @Entity
 @Table(name = "alunos")
@@ -15,33 +22,40 @@ public class Aluno {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 150)
-    private String nome;
-
-    @Column(nullable = false, unique = true, length = 150)
-    private String email;
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "usuario_id", nullable = false, unique = true)
+    private Usuario usuario;
 
     @Column(nullable = false, unique = true, length = 30)
     private String matricula;
 
-    @Column(length = 100)
-    private String curso;
+    @Column(length = 500)
+    private String descricao;
 
-    public Aluno() {
-    }
+    @Column(name = "foto_url", length = 255)
+    private String fotoUrl;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private SituacaoAcademica situacao = SituacaoAcademica.EM_ANDAMENTO;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "curso_id", nullable = false)
+    private Curso curso;
+
+    public Aluno() {}
 
     public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
-    public String getNome() { return nome; }
-    public void setNome(String nome) { this.nome = nome; }
-
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
-
+    public Usuario getUsuario() { return usuario; }
+    public void setUsuario(Usuario usuario) { this.usuario = usuario; }
     public String getMatricula() { return matricula; }
     public void setMatricula(String matricula) { this.matricula = matricula; }
-
-    public String getCurso() { return curso; }
-    public void setCurso(String curso) { this.curso = curso; }
+    public String getDescricao() { return descricao; }
+    public void setDescricao(String descricao) { this.descricao = descricao; }
+    public String getFotoUrl() { return fotoUrl; }
+    public void setFotoUrl(String fotoUrl) { this.fotoUrl = fotoUrl; }
+    public SituacaoAcademica getSituacao() { return situacao; }
+    public void setSituacao(SituacaoAcademica situacao) { this.situacao = situacao; }
+    public Curso getCurso() { return curso; }
+    public void setCurso(Curso curso) { this.curso = curso; }
 }

@@ -15,7 +15,7 @@ public record DTOInscricaoResponse(
         return new DTOInscricaoResponse(
                 i.getId(),
                 i.getAluno().getId(),
-                i.getAluno().getNome(),
+                i.getAluno().getUsuario().getNome(),
                 i.getEvento().getId(),
                 i.getEvento().getTitulo(),
                 i.getDataInscricao());
