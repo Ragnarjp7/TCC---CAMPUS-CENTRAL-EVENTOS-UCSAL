@@ -49,7 +49,7 @@ public class EventoService {
                 .orElseThrow(() -> new IllegalArgumentException("Categoria não encontrada"));
 
         evento.setCategoria(categoria);
-        evento.setStatus(Evento.StatusEvento.AGUARDANDO_ANALISE);
+        evento.setStatus(Evento.StatusEvento.APROVADO);
 
         return eventoRepository.save(evento);
     }
