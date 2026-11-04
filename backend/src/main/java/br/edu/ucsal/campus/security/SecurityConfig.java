@@ -81,7 +81,7 @@ public class SecurityConfig {
         config.setAllowedOrigins(List.of(origens));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
-        config.setAllowCredentials(false); // token vai no header, não em cookie
+        config.setAllowCredentials(false); 
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
