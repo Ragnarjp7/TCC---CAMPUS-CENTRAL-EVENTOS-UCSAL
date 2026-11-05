@@ -162,4 +162,8 @@ public class EventoService {
         }
         return eventoRepository.findByPedido(inicio.atStartOfDay(), fim.plusDays(1).atStartOfDay());
     }
+
+    public List<Evento> listarPublicos() {
+    return eventoRepository.findByStatusComCategoria(Evento.StatusEvento.APROVADO);
+    }
 }

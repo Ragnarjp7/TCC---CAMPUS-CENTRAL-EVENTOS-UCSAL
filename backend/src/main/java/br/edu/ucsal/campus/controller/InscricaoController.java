@@ -1,17 +1,15 @@
+
 package br.edu.ucsal.campus.controller;
 
-import br.edu.ucsal.campus.dto.DTOInscricaoRequest;
 import br.edu.ucsal.campus.dto.DTOInscricaoResponse;
+import br.edu.ucsal.campus.security.UsuarioAutenticado;
+import br.edu.ucsal.campus.service.AlunoService;
 import br.edu.ucsal.campus.service.InscricaoService;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -20,29 +18,47 @@ import java.util.List;
 public class InscricaoController {
 
     private final InscricaoService inscricaoService;
+    private final AlunoService alunoService;
 
-    public InscricaoController(InscricaoService inscricaoService) {
+    public InscricaoController(
+            InscricaoService inscricaoService,
+            AlunoService alunoService) {
+
         this.inscricaoService = inscricaoService;
+        this.alunoService = alunoService;
     }
 
-    // Inscrever aluno no evento
+    // O aluno logado se inscreve no evento
     @PostMapping
     public ResponseEntity<DTOInscricaoResponse> inscrever(
-            @PathVariable Long eventoId,@RequestBody DTOInscricaoRequest request) {
+            @PathVariable Long eventoId,
+            @AuthenticationPrincipal UsuarioAutenticado usuario) {
+
+        Long alunoId = alunoService.buscarIdPorUsuario(usuario.id());
+
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(inscricaoService.inscrever(eventoId, request.alunoId()));
+                .body(inscricaoService.inscrever(eventoId, alunoId));
     }
 
-    // Listar inscritos do evento
+    // Lista os inscritos do evento
     @GetMapping
-    public ResponseEntity<List<DTOInscricaoResponse>> listarPorEvento(@PathVariable Long eventoId) {
-        return ResponseEntity.ok(inscricaoService.listarPorEvento(eventoId));
+    public ResponseEntity<List<DTOInscricaoResponse>> listarPorEvento(
+            @PathVariable Long eventoId) {
+
+        return ResponseEntity.ok(
+                inscricaoService.listarPorEvento(eventoId));
     }
 
-    // Cancelar inscrição
-    @DeleteMapping("/{alunoId}")
-    public ResponseEntity<Void> cancelar(@PathVariable Long eventoId,           @PathVariable Long alunoId) {
+    // O aluno logado cancela a própria inscrição
+    @DeleteMapping
+    public ResponseEntity<Void> cancelar(
+            @PathVariable Long eventoId,
+            @AuthenticationPrincipal UsuarioAutenticado usuario) {
+
+        Long alunoId = alunoService.buscarIdPorUsuario(usuario.id());
+
         inscricaoService.cancelar(eventoId, alunoId);
+
         return ResponseEntity.noContent().build();
     }
 }

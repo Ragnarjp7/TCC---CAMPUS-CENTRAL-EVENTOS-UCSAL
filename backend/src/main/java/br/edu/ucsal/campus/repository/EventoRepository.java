@@ -29,6 +29,13 @@ public interface EventoRepository
             """)
     List<Evento> findByPedido(@Param("inicio") LocalDateTime inicio, @Param("fim") LocalDateTime fim);
 
+    @Query("""
+        SELECT e FROM Evento e JOIN FETCH e.categoria
+        WHERE e.status = :status
+        ORDER BY e.dataInicio
+        """)
+    List<Evento> findByStatusComCategoria(@Param("status") Evento.StatusEvento status);
+
     Long countById(Long id);
 
     // Trava a linha do evento durante a inscrição para evitar que duas

@@ -1,8 +1,10 @@
+
 package br.edu.ucsal.campus.service;
 
-import br.edu.ucsal.campus.entity.Usuario;
+import br.edu.ucsal.campus.model.Usuario;
 import br.edu.ucsal.campus.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
+
 import java.util.Optional;
 
 @Service
@@ -19,11 +21,11 @@ public class UsuarioService {
     }
 
     public Optional<Usuario> buscarPorEmail(String email) {
-        return usuarioRepository.findByEmail(email);
+        return usuarioRepository.findByEmailIgnoreCase(email);
     }
 
     public boolean emailExiste(String email) {
-        return usuarioRepository.existsByEmail(email);
+        return usuarioRepository.existsByEmailIgnoreCase(email);
     }
 
     public Optional<Usuario> buscarPorId(Long id) {

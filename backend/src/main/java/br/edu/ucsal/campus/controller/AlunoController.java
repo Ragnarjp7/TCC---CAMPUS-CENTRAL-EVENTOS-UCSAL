@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import br.edu.ucsal.campus.security.UsuarioAutenticado;
 import br.edu.ucsal.campus.dto.DTOAlunoRequest;
 
 import java.util.List;
@@ -48,4 +50,27 @@ public class AlunoController {
     public ResponseEntity<List<DTOInscricaoResponse>> listarInscricoes(@PathVariable Long id) {
         return ResponseEntity.ok(inscricaoService.listarPorAluno(id));
     }
+
+    // Perfil do aluno logado
+    @GetMapping("/me")
+    public ResponseEntity<DTOAlunoResponse> meuPerfil(
+        @AuthenticationPrincipal UsuarioAutenticado usuario) {
+
+    return ResponseEntity.ok(
+            alunoService.buscarPorUsuarioId(usuario.id())
+    );
+    }
+
+    // Inscrições do aluno logado
+    @GetMapping("/me/inscricoes")
+    public ResponseEntity<List<DTOInscricaoResponse>> minhasInscricoes(
+        @AuthenticationPrincipal UsuarioAutenticado usuario) {
+
+    Long alunoId = alunoService.buscarIdPorUsuario(usuario.id());
+
+    return ResponseEntity.ok(
+            inscricaoService.listarPorAluno(alunoId)
+    );
+    }
+
 }

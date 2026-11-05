@@ -68,6 +68,12 @@ public class EventoController {
         return ResponseEntity.ok(eventoService.listarPorPeriodo(inicio, fim));
     }
 
+    // Visitante (sem login): somente eventos aprovados
+    @GetMapping("/publicos")
+    public ResponseEntity<List<Evento>> listarPublicos() {
+    return ResponseEntity.ok(eventoService.listarPublicos());
+    }
+
     // Cadastrar evento
     @PostMapping
     public ResponseEntity<Evento> criar(@RequestBody Evento evento) {

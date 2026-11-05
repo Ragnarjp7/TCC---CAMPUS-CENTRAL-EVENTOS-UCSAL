@@ -1,6 +1,7 @@
+
 package br.edu.ucsal.campus.security;
 
-import br.edu.ucsal.campus.entity.Usuario;
+import br.edu.ucsal.campus.model.Usuario;
 import br.edu.ucsal.campus.repository.UsuarioRepository;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -20,32 +21,51 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final UsuarioRepository usuarioRepository;
 
-    public JwtAuthFilter(JwtService jwtService, UsuarioRepository usuarioRepository) {
+    public JwtAuthFilter(
+            JwtService jwtService,
+            UsuarioRepository usuarioRepository) {
+
         this.jwtService = jwtService;
         this.usuarioRepository = usuarioRepository;
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain chain) throws ServletException, IOException {
+    protected void doFilterInternal(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain chain)
+            throws ServletException, IOException {
+
         String header = request.getHeader("Authorization");
 
         if (header != null && header.startsWith("Bearer ")) {
             try {
-                Long id = jwtService.extrairUsuarioId(header.substring(7));
+                Long id = jwtService.extrairUsuarioId(
+                        header.substring(7));
 
                 usuarioRepository.findById(id)
-                    .filter(u -> u.isAtivo())
-                    .ifPresent(u -> {
+                        .filter(Usuario::isAtivo)
+                        .ifPresent(usuario -> {
+
                             var principal = new UsuarioAutenticado(
-                                    u.getId(), u.getEmail(), Set.copyOf(u.getPapeis()));
-                            var authorities = u.getPapeis().stream()
-                                    .map(p -> new SimpleGrantedAuthority("ROLE_" + p.name()))
+                                    usuario.getId(),
+                                    usuario.getEmail(),
+                                    Set.copyOf(usuario.getPapeis()));
+
+                            var authorities = usuario.getPapeis()
+                                    .stream()
+                                    .map(p -> new SimpleGrantedAuthority(
+                                            "ROLE_" + p.name()))
                                     .toList();
-                            SecurityContextHolder.getContext().setAuthentication(
-                                    new UsernamePasswordAuthenticationToken(principal, null, authorities));
+
+                            SecurityContextHolder.getContext()
+                                    .setAuthentication(
+                                            new UsernamePasswordAuthenticationToken(
+                                                    principal,
+                                                    null,
+                                                    authorities));
                         });
+
             } catch (JwtException | IllegalArgumentException e) {
                 SecurityContextHolder.clearContext();
             }

@@ -1,6 +1,6 @@
 package br.edu.ucsal.campus.security;
 
-import br.edu.ucsal.campus.entity.Usuario;
+import br.edu.ucsal.campus.model.Usuario;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
