@@ -1,4 +1,4 @@
-package br.edu.ucsal.campus;
+package br.edu.ucsal.campus.controller;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;

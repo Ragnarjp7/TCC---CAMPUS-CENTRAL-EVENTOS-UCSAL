@@ -1,0 +1,7 @@
+package br.edu.ucsal.campus.model.enums;
+
+public enum Permissao {
+    
+    CRIAR_EVENTO, EDITAR_EVENTO, VER_INSCRITOS, REGISTRAR_PRESENCA, EMITIR_CERTIFICADO, PUBLICAR, GERENCIAR_MEMBROS, GERENCIAR_CARGOS
+
+}
