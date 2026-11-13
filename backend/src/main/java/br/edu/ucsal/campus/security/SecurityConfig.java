@@ -65,7 +65,13 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/eventos/*/inscricoes").hasRole("ALUNO")
                 .requestMatchers(HttpMethod.DELETE, "/eventos/*/inscricoes").hasRole("ALUNO")
                 .requestMatchers("/alunos/me", "/alunos/me/**").hasRole("ALUNO")
-
+                
+                 // Ligas Acadêmicas
+                .requestMatchers(HttpMethod.GET, "/ligas/publicas").permitAll()
+                .requestMatchers(HttpMethod.POST, "/ligas").hasRole("COORDENADOR")
+                .requestMatchers(HttpMethod.GET, "/ligas/pendentes").hasRole("COORDENADOR")
+                .requestMatchers(HttpMethod.PUT, "/ligas/*/aprovar", "/ligas/*/rejeitar").hasRole("COORDENADOR")
+                
                 // Todo o resto exige login
                 .anyRequest().authenticated())
             .addFilterBefore(new JwtAuthFilter(jwtService, usuarioRepository),
