@@ -55,17 +55,17 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/categorias", "/categorias/*").permitAll()
                 .requestMatchers(HttpMethod.POST, "/alunos").permitAll()
 
+               // Aluno logado
+                .requestMatchers(HttpMethod.POST, "/eventos/*/inscricoes").hasRole("ALUNO")
+                .requestMatchers(HttpMethod.DELETE, "/eventos/*/inscricoes").hasRole("ALUNO")
+                .requestMatchers("/alunos/me", "/alunos/me/**").hasRole("ALUNO")
+                              
                 // Somente CAEX e Admin
                 .requestMatchers(HttpMethod.PUT, "/eventos/*/status").hasAnyRole("CAEX", "ADMIN")
                 .requestMatchers(HttpMethod.POST, "/categorias").hasAnyRole("CAEX", "ADMIN")
                 .requestMatchers(HttpMethod.GET, "/eventos/*/inscricoes").hasAnyRole("CAEX", "ADMIN")
                 .requestMatchers(HttpMethod.GET, "/alunos", "/alunos/*").hasAnyRole("CAEX", "ADMIN")
-
-                // Aluno logado
-                .requestMatchers(HttpMethod.POST, "/eventos/*/inscricoes").hasRole("ALUNO")
-                .requestMatchers(HttpMethod.DELETE, "/eventos/*/inscricoes").hasRole("ALUNO")
-                .requestMatchers("/alunos/me", "/alunos/me/**").hasRole("ALUNO")
-                
+ 
                  // Ligas Acadêmicas
                 .requestMatchers(HttpMethod.GET, "/ligas/publicas").permitAll()
                 .requestMatchers(HttpMethod.POST, "/ligas").hasRole("COORDENADOR")
