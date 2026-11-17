@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import br.edu.ucsal.campus.exception.ConflitoException;
 import br.edu.ucsal.campus.exception.EventoNaoEncontradoException;
+import br.edu.ucsal.campus.dto.DTOStatusRequest;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -98,29 +99,56 @@ public class EventoService {
         Evento.StatusEvento.ENCERRADO, EnumSet.noneOf(Evento.StatusEvento.class)
     );
 
-    @Transactional
-    public Evento atualizarStatus(Long id, Evento.StatusEvento novoStatus) {
-        if (novoStatus == null) {
-            throw new IllegalArgumentException("O status é obrigatório");
-        }
+    
+@Transactional
+public Evento atualizarStatus(Long id, DTOStatusRequest request) {
 
-        Evento evento = eventoRepository.findById(id).orElseThrow(() -> new EventoNaoEncontradoException("Evento não encontrado"));
-
-        Evento.StatusEvento atual = evento.getStatus();
-
-        if (!TRANSICOES.get(atual).contains(novoStatus)) {
-            throw new ConflitoException(
-                    "Não é possível mudar o status de " + atual + " para " + novoStatus);
-        }
-
-        if (novoStatus == Evento.StatusEvento.APROVADO && evento.getDataFim().isBefore(LocalDateTime.now())) {
-            throw new IllegalArgumentException(
-                    "Não é possível aprovar um evento que já terminou");
-        }
-
-        evento.setStatus(novoStatus);
-        return eventoRepository.save(evento);
+    if (request == null || request.status() == null) {
+        throw new IllegalArgumentException("O status é obrigatório");
     }
+
+    Evento evento = eventoRepository.findById(id)
+            .orElseThrow(() ->
+                    new EventoNaoEncontradoException("Evento não encontrado"));
+
+    Evento.StatusEvento novoStatus = request.status();
+    Evento.StatusEvento atual = evento.getStatus();
+
+    if (!TRANSICOES.getOrDefault(atual, Set.of()).contains(novoStatus)) {
+        throw new ConflitoException(
+                "Não é possível mudar o status de "
+                        + atual + " para " + novoStatus);
+    }
+
+    boolean decisaoCaex =
+            novoStatus == Evento.StatusEvento.APROVADO
+            || novoStatus == Evento.StatusEvento.AJUSTES_SOLICITADOS
+            || novoStatus == Evento.StatusEvento.REJEITADO;
+
+    String observacao = request.observacao();
+
+    if (decisaoCaex && (observacao == null || observacao.isBlank())) {
+        throw new IllegalArgumentException(
+                "A observação é obrigatória para registrar a decisão do CAEX");
+    }
+
+    if (decisaoCaex && observacao.length() > 1000) {
+        throw new IllegalArgumentException(
+                "A observação deve ter no máximo 1000 caracteres");
+    }
+
+    if (novoStatus == Evento.StatusEvento.APROVADO && evento.getDataFim().isBefore(LocalDateTime.now())) {
+        throw new IllegalArgumentException(
+                "Não é possível aprovar um evento que já terminou");
+    }
+
+    if (decisaoCaex) {
+        evento.setObservacaoCaex(observacao.trim());
+    }
+
+    evento.setStatus(novoStatus);
+    return eventoRepository.save(evento);
+}
 
     private void validarCamposEvento(Evento e) {
         if (isVazio(e.getTitulo()) || isVazio(e.getDescricao())

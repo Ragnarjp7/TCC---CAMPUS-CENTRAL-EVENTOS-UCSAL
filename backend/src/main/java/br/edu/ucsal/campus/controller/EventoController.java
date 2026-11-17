@@ -91,7 +91,7 @@ public class EventoController {
     @PutMapping("/{id}/status")
     public ResponseEntity<DTOEventoStatusResponse> atualizarStatus(@PathVariable Long id,@RequestBody DTOStatusRequest request) {
         
-        Evento atualizado = eventoService.atualizarStatus(id, request.status());
+        Evento atualizado = eventoService.atualizarStatus(id, request);
         return ResponseEntity.ok(DTOEventoStatusResponse.de(atualizado));
     }
 
