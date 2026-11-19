@@ -15,6 +15,12 @@ public interface MembroLigaRepository extends JpaRepository<MembroLiga, Long> {
     Optional<MembroLiga> findByAlunoIdAndLigaId(Long alunoId, Long ligaId);
     List<MembroLiga> findByLigaId(Long ligaId);
 
+    // Busca membros de uma liga por situação
+    List<MembroLiga> findByLigaIdAndStatus(
+        Long ligaId,
+        StatusMembro status
+);
+
     @Query("""
         SELECT m FROM MembroLiga m
         JOIN m.aluno a

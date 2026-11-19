@@ -1,0 +1,24 @@
+package br.edu.ucsal.campus.dto;
+
+import br.edu.ucsal.campus.model.MembroLiga;
+import br.edu.ucsal.campus.model.enums.StatusMembro;
+
+public record DTOMembroLigaResponse(
+        Long id,
+        Long ligaId,
+        String ligaNome,
+        StatusMembro status,
+        Long cargoId,
+        String cargoNome
+) {
+    public static DTOMembroLigaResponse de(MembroLiga membro) {
+        return new DTOMembroLigaResponse(
+                membro.getId(),
+                membro.getLiga().getId(),
+                membro.getLiga().getNome(),
+                membro.getStatus(),
+                membro.getCargo() != null ? membro.getCargo().getId() : null,
+                membro.getCargo() != null ? membro.getCargo().getNome() : null
+        );
+    }
+}

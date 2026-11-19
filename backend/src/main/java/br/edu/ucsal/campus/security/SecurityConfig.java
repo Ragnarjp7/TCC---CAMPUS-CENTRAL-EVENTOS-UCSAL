@@ -1,3 +1,4 @@
+
 package br.edu.ucsal.campus.security;
 
 import br.edu.ucsal.campus.repository.UsuarioRepository;
@@ -32,54 +33,129 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http,
-                                           JwtService jwtService,
-                                           UsuarioRepository usuarioRepository) throws Exception {
+    public SecurityFilterChain filterChain(
+            HttpSecurity http,
+            JwtService jwtService,
+            UsuarioRepository usuarioRepository) throws Exception {
+
         http
             .csrf(AbstractHttpConfigurer::disable)
             .cors(Customizer.withDefaults())
-            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .sessionManagement(s ->
+                    s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .exceptionHandling(e -> e
                 .authenticationEntryPoint((req, res, ex) ->
-                        escrever(res, 401, "Autenticação necessária ou token inválido"))
+                        escrever(res, 401,
+                                "Autenticação necessária ou token inválido"))
                 .accessDeniedHandler((req, res, ex) ->
-                        escrever(res, 403, "Você não tem permissão para esta ação")))
+                        escrever(res, 403,
+                                "Você não tem permissão para esta ação")))
             .authorizeHttpRequests(auth -> auth
-            
+
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/error").permitAll()
 
-                // Rotas públicas (inclui o visitante)
+                // Solicitação de participação em liga
+                .requestMatchers(
+                        HttpMethod.POST,
+                        "/ligas/*/solicitar-participacao"
+                ).hasRole("ALUNO")
+
+                // Rotas públicas
                 .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/health", "/eventos/publicos", "/cursos").permitAll()
-                .requestMatchers(HttpMethod.GET, "/categorias", "/categorias/*").permitAll()
+                .requestMatchers(
+                        HttpMethod.GET,
+                        "/api/health",
+                        "/eventos/publicos",
+                        "/cursos"
+                ).permitAll()
+                .requestMatchers(
+                        HttpMethod.GET,
+                        "/categorias",
+                        "/categorias/*"
+                ).permitAll()
                 .requestMatchers(HttpMethod.POST, "/alunos").permitAll()
 
-               // Aluno logado
-                .requestMatchers(HttpMethod.POST, "/eventos/*/inscricoes").hasRole("ALUNO")
-                .requestMatchers(HttpMethod.DELETE, "/eventos/*/inscricoes").hasRole("ALUNO")
-                .requestMatchers("/alunos/me", "/alunos/me/**").hasRole("ALUNO")
-                              
-                // Somente CAEX e Admin
-                .requestMatchers(HttpMethod.PUT, "/eventos/*/status").hasAnyRole("CAEX", "ADMIN")
-                .requestMatchers(HttpMethod.POST, "/categorias").hasAnyRole("CAEX", "ADMIN")
-                .requestMatchers(HttpMethod.GET, "/eventos/*/inscricoes").hasAnyRole("CAEX", "ADMIN")
-                .requestMatchers(HttpMethod.GET, "/alunos", "/alunos/*").hasAnyRole("CAEX", "ADMIN")
+                // Aluno logado
+                .requestMatchers(
+                        HttpMethod.POST,
+                        "/eventos/*/inscricoes"
+                ).hasRole("ALUNO")
+                .requestMatchers(
+                        HttpMethod.DELETE,
+                        "/eventos/*/inscricoes"
+                ).hasRole("ALUNO")
+                .requestMatchers(
+                        "/alunos/me",
+                        "/alunos/me/**"
+                ).hasRole("ALUNO")
 
-                // Cadastro e edição de eventos por usuários autenticados
-                .requestMatchers(HttpMethod.POST, "/eventos").authenticated()
-                .requestMatchers(HttpMethod.PUT, "/eventos/*").authenticated()
- 
-                 // Ligas Acadêmicas
-                .requestMatchers(HttpMethod.GET, "/ligas/publicas").permitAll()
-                .requestMatchers(HttpMethod.POST, "/ligas").hasRole("COORDENADOR")
-                .requestMatchers(HttpMethod.GET, "/ligas/pendentes").hasRole("COORDENADOR")
-                .requestMatchers(HttpMethod.PUT, "/ligas/*/aprovar", "/ligas/*/rejeitar").hasRole("COORDENADOR")
-                
-                // Todo o resto exige login
-                .anyRequest().authenticated())
-            .addFilterBefore(new JwtAuthFilter(jwtService, usuarioRepository),
-                    UsernamePasswordAuthenticationFilter.class);
+                // Somente CAEX e Admin
+                .requestMatchers(
+                        HttpMethod.PUT,
+                        "/eventos/*/status"
+                ).hasAnyRole("CAEX", "ADMIN")
+                .requestMatchers(
+                        HttpMethod.POST,
+                        "/categorias"
+                ).hasAnyRole("CAEX", "ADMIN")
+                .requestMatchers(
+                        HttpMethod.GET,
+                        "/eventos/*/inscricoes"
+                ).hasAnyRole("CAEX", "ADMIN")
+                .requestMatchers(
+                        HttpMethod.GET,
+                        "/alunos",
+                        "/alunos/*"
+                ).hasAnyRole("CAEX", "ADMIN")
+
+                // Cadastro e edição de eventos
+                .requestMatchers(
+                        HttpMethod.POST,
+                        "/eventos"
+                ).authenticated()
+                .requestMatchers(
+                        HttpMethod.PUT,
+                        "/eventos/*"
+                ).authenticated()
+
+                // Ligas acadêmicas
+                .requestMatchers(
+                        HttpMethod.GET,
+                        "/ligas/publicas"
+                ).permitAll()
+                .requestMatchers(
+                        HttpMethod.POST,
+                        "/ligas"
+                ).hasRole("COORDENADOR")
+                .requestMatchers(
+                        HttpMethod.GET,
+                        "/ligas/pendentes"
+                ).hasRole("COORDENADOR")
+                .requestMatchers(
+                        HttpMethod.PUT,
+                        "/ligas/*/aprovar",
+                        "/ligas/*/rejeitar"
+                ).hasRole("COORDENADOR")
+
+                // Gerenciamento de membros das ligas
+                .requestMatchers(
+                        HttpMethod.GET,
+                        "/ligas/*/solicitacoes"
+                ).authenticated()
+                .requestMatchers(
+                        HttpMethod.PUT,
+                        "/ligas/*/membros/*/aprovar",
+                        "/ligas/*/membros/*/recusar"
+                ).authenticated()
+
+                // Todo o restante exige autenticação
+                .anyRequest().authenticated()
+            )
+            .addFilterBefore(
+                    new JwtAuthFilter(jwtService, usuarioRepository),
+                    UsernamePasswordAuthenticationFilter.class
+            );
 
         return http.build();
     }
@@ -87,18 +163,30 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource(
             @Value("${app.cors.allowed-origins}") String[] origens) {
+
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(origens));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
-        config.setAllowCredentials(false); 
+        config.setAllowedMethods(
+                List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+        );
+        config.setAllowedHeaders(
+                List.of("Authorization", "Content-Type")
+        );
+        config.setAllowCredentials(false);
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+
         source.registerCorsConfiguration("/**", config);
+
         return source;
     }
 
-    private void escrever(HttpServletResponse res, int status, String mensagem) throws IOException {
+    private void escrever(
+            HttpServletResponse res,
+            int status,
+            String mensagem) throws IOException {
+
         res.setStatus(status);
         res.setContentType("application/json;charset=UTF-8");
         res.getWriter().write("{\"mensagem\":\"" + mensagem + "\"}");
