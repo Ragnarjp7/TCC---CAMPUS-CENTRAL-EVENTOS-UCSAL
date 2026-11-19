@@ -34,13 +34,15 @@ public class EventoService {
     private final CategoriaRepository categoriaRepository;
     private final MembroLigaRepository membroLigaRepository;
     private final LigaRepository ligaRepository;
+    private final NotificacaoService notificacaoService;
 
-    public EventoService(EventoRepository eventoRepository, CategoriaRepository categoriaRepository, MembroLigaRepository membroLigaRepository, LigaRepository ligaRepository) {
+    public EventoService(EventoRepository eventoRepository, CategoriaRepository categoriaRepository, MembroLigaRepository membroLigaRepository, LigaRepository ligaRepository, NotificacaoService notificacaoService) {
 
     this.eventoRepository = eventoRepository;
     this.categoriaRepository = categoriaRepository;
     this.membroLigaRepository = membroLigaRepository;
     this.ligaRepository = ligaRepository;
+    this.notificacaoService = notificacaoService;
 }
 
     public List<Evento> listarTodos() {
@@ -239,7 +241,30 @@ public Evento atualizarStatus(Long id, DTOStatusRequest request) {
     }
 
     evento.setStatus(novoStatus);
-    return eventoRepository.save(evento);
+
+    Evento eventoAtualizado = eventoRepository.save(evento);
+
+    // Envia notificações aos membros ativos da liga
+    if (decisaoCaex) {
+    String mensagem = switch (novoStatus) {
+        case APROVADO ->
+                "O evento '" + evento.getTitulo() + "' foi aprovado pelo CAEX.";
+
+        case AJUSTES_SOLICITADOS ->
+                "O CAEX solicitou ajustes no evento '" + evento.getTitulo()
+                + "'. Justificativa: " + evento.getObservacaoCaex();
+
+        case REJEITADO ->
+                "O evento '" + evento.getTitulo() + "' foi rejeitado pelo CAEX."
+                + " Justificativa: " + evento.getObservacaoCaex();
+
+        default -> "";
+    };
+
+    notificacaoService.notificarLiga(eventoAtualizado, mensagem);
+}
+
+return eventoAtualizado;
 }
 
     private void validarCamposEvento(Evento e) {
