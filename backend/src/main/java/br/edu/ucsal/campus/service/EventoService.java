@@ -2,19 +2,23 @@ package br.edu.ucsal.campus.service;
 
 import br.edu.ucsal.campus.model.Categoria;
 import br.edu.ucsal.campus.model.Evento;
-import br.edu.ucsal.campus.repository.CategoriaRepository;
-import br.edu.ucsal.campus.repository.EventoRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import br.edu.ucsal.campus.model.MembroLiga;
 import br.edu.ucsal.campus.model.enums.Permissao;
 import br.edu.ucsal.campus.model.enums.StatusMembro;
+import br.edu.ucsal.campus.model.Liga;
+import br.edu.ucsal.campus.repository.CategoriaRepository;
+import br.edu.ucsal.campus.repository.EventoRepository;
 import br.edu.ucsal.campus.repository.MembroLigaRepository;
+import br.edu.ucsal.campus.repository.LigaRepository;
 import br.edu.ucsal.campus.security.UsuarioAutenticado;
-
+import br.edu.ucsal.campus.dto.DTOEventoRequest;
+import br.edu.ucsal.campus.dto.DTOStatusRequest;
 import br.edu.ucsal.campus.exception.ConflitoException;
 import br.edu.ucsal.campus.exception.EventoNaoEncontradoException;
-import br.edu.ucsal.campus.dto.DTOStatusRequest;
+
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -29,15 +33,14 @@ public class EventoService {
     private final EventoRepository eventoRepository;
     private final CategoriaRepository categoriaRepository;
     private final MembroLigaRepository membroLigaRepository;
+    private final LigaRepository ligaRepository;
 
-    public EventoService(
-        EventoRepository eventoRepository,
-        CategoriaRepository categoriaRepository,
-        MembroLigaRepository membroLigaRepository) {
+    public EventoService(EventoRepository eventoRepository, CategoriaRepository categoriaRepository, MembroLigaRepository membroLigaRepository, LigaRepository ligaRepository) {
 
     this.eventoRepository = eventoRepository;
     this.categoriaRepository = categoriaRepository;
     this.membroLigaRepository = membroLigaRepository;
+    this.ligaRepository = ligaRepository;
 }
 
     public List<Evento> listarTodos() {
@@ -57,19 +60,71 @@ public class EventoService {
         return eventoRepository.findByCategoriaId(categoriaId);
     }
 
-    @Transactional
-    public Evento criar(Evento evento) {
-        validarCamposEvento(evento);
+    
+@Transactional
+public Evento criar(DTOEventoRequest request, UsuarioAutenticado usuario) {
 
-        Categoria categoria = categoriaRepository
-                .findById(evento.getCategoria().getId())
-                .orElseThrow(() -> new IllegalArgumentException("Categoria não encontrada"));
-
-        evento.setCategoria(categoria);
-        evento.setStatus(Evento.StatusEvento.AGUARDANDO_ANALISE);
-
-        return eventoRepository.save(evento);
+    if (request == null) {
+        throw new IllegalArgumentException("Os dados do evento são obrigatórios");
     }
+
+    if (usuario == null) {
+        throw new ConflitoException("Usuário não autenticado");
+    }
+
+    if (request.ligaId() == null) {
+        throw new IllegalArgumentException("A liga é obrigatória");
+    }
+
+    if (request.categoriaId() == null) {
+        throw new IllegalArgumentException("A categoria é obrigatória");
+    }
+
+    // Busca a liga responsável pelo evento
+    Liga liga = ligaRepository.findById(request.ligaId()).orElseThrow(() ->
+                    new IllegalArgumentException("Liga não encontrada"));
+
+    // Verifica se o usuário é membro ativo da liga
+    MembroLiga membro = membroLigaRepository.buscarMembroAtivo(usuario.id(), liga.getId(), StatusMembro.ATIVO).orElseThrow(() ->
+            new ConflitoException(
+                    "Você não é um membro ativo desta liga"));
+
+    // Verifica a permissão para criar eventos
+    if (membro.getCargo() == null
+            || !membro.getCargo().getPermissoes()
+                    .contains(Permissao.CRIAR_EVENTO)) {
+
+        throw new ConflitoException(
+                "Seu cargo não possui permissão para criar eventos");
+    }
+
+    // Busca a categoria
+    Categoria categoria = categoriaRepository.findById(request.categoriaId())
+            .orElseThrow(() ->
+                    new IllegalArgumentException("Categoria não encontrada"));
+
+    // Monta o evento
+    Evento evento = new Evento();
+
+    evento.setTitulo(request.titulo());
+    evento.setDescricao(request.descricao());
+    evento.setLocal(request.local());
+    evento.setDataInicio(request.dataInicio());
+    evento.setDataFim(request.dataFim());
+    evento.setModalidade(request.modalidade());
+    evento.setCapacidade(request.capacidade());
+    evento.setCategoria(categoria);
+    evento.setLiga(liga);
+
+    // Valida os campos obrigatórios
+    validarCamposEvento(evento);
+
+    // Todo evento novo começa aguardando análise do CAEX
+    evento.setStatus(Evento.StatusEvento.AGUARDANDO_ANALISE);
+
+    return eventoRepository.save(evento);
+}
+
 
     @Transactional
 public Evento atualizarEvento(Long id, Evento dados, UsuarioAutenticado usuario) {

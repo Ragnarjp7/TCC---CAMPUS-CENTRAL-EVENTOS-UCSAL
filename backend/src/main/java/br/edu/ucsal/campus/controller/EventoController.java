@@ -2,6 +2,7 @@ package br.edu.ucsal.campus.controller;
 
 import br.edu.ucsal.campus.dto.DTOEventoStatusResponse;
 import br.edu.ucsal.campus.dto.DTOStatusRequest;
+import br.edu.ucsal.campus.dto.DTOEventoRequest;
 import br.edu.ucsal.campus.model.Evento;
 import br.edu.ucsal.campus.service.EventoService;
 import br.edu.ucsal.campus.security.UsuarioAutenticado;
@@ -77,12 +78,16 @@ public class EventoController {
     return ResponseEntity.ok(eventoService.listarPublicos());
     }
 
-    // Cadastrar evento
-    @PostMapping
-    public ResponseEntity<Evento> criar(@RequestBody Evento evento) {
-        Evento novoEvento = eventoService.criar(evento);
-        return ResponseEntity.status(HttpStatus.CREATED).body(novoEvento);
-    }
+    // Cadastrar evento pela liga
+@PostMapping
+public ResponseEntity<Evento> criar(@RequestBody DTOEventoRequest request,@AuthenticationPrincipal UsuarioAutenticado usuario) {
+
+    Evento novoEvento = eventoService.criar(request, usuario);
+
+    return ResponseEntity
+            .status(HttpStatus.CREATED)
+            .body(novoEvento);
+}
 
     //Atualizar dados evento
     @PutMapping("/{id}")

@@ -65,6 +65,10 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/categorias").hasAnyRole("CAEX", "ADMIN")
                 .requestMatchers(HttpMethod.GET, "/eventos/*/inscricoes").hasAnyRole("CAEX", "ADMIN")
                 .requestMatchers(HttpMethod.GET, "/alunos", "/alunos/*").hasAnyRole("CAEX", "ADMIN")
+
+                // Cadastro e edição de eventos por usuários autenticados
+                .requestMatchers(HttpMethod.POST, "/eventos").authenticated()
+                .requestMatchers(HttpMethod.PUT, "/eventos/*").authenticated()
  
                  // Ligas Acadêmicas
                 .requestMatchers(HttpMethod.GET, "/ligas/publicas").permitAll()
