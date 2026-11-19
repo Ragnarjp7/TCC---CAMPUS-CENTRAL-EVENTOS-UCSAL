@@ -4,6 +4,8 @@ import br.edu.ucsal.campus.dto.DTOEventoStatusResponse;
 import br.edu.ucsal.campus.dto.DTOStatusRequest;
 import br.edu.ucsal.campus.model.Evento;
 import br.edu.ucsal.campus.service.EventoService;
+import br.edu.ucsal.campus.security.UsuarioAutenticado;
+
 
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -83,9 +86,12 @@ public class EventoController {
 
     //Atualizar dados evento
     @PutMapping("/{id}")
-    public ResponseEntity<Evento> atualizarEvento(@PathVariable Long id, @RequestBody Evento eventoAtualizado) {
-    return ResponseEntity.ok(eventoService.atualizarEvento(id, eventoAtualizado));
-    }
+public ResponseEntity<Evento> atualizarEvento(@PathVariable Long id, @RequestBody Evento eventoAtualizado, @AuthenticationPrincipal UsuarioAutenticado usuario) {
+    
+    return ResponseEntity.ok(
+            eventoService.atualizarEvento(id, eventoAtualizado, usuario)
+    );
+}
 
     //Atualizar status do evento (Deve ser feito apenas pelo CAEX)
     @PutMapping("/{id}/status")

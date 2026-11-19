@@ -6,6 +6,11 @@ import br.edu.ucsal.campus.repository.CategoriaRepository;
 import br.edu.ucsal.campus.repository.EventoRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import br.edu.ucsal.campus.model.MembroLiga;
+import br.edu.ucsal.campus.model.enums.Permissao;
+import br.edu.ucsal.campus.model.enums.StatusMembro;
+import br.edu.ucsal.campus.repository.MembroLigaRepository;
+import br.edu.ucsal.campus.security.UsuarioAutenticado;
 
 import br.edu.ucsal.campus.exception.ConflitoException;
 import br.edu.ucsal.campus.exception.EventoNaoEncontradoException;
@@ -23,12 +28,17 @@ public class EventoService {
 
     private final EventoRepository eventoRepository;
     private final CategoriaRepository categoriaRepository;
+    private final MembroLigaRepository membroLigaRepository;
 
-    public EventoService(EventoRepository eventoRepository,
-                         CategoriaRepository categoriaRepository) {
-        this.eventoRepository = eventoRepository;
-        this.categoriaRepository = categoriaRepository;
-    }
+    public EventoService(
+        EventoRepository eventoRepository,
+        CategoriaRepository categoriaRepository,
+        MembroLigaRepository membroLigaRepository) {
+
+    this.eventoRepository = eventoRepository;
+    this.categoriaRepository = categoriaRepository;
+    this.membroLigaRepository = membroLigaRepository;
+}
 
     public List<Evento> listarTodos() {
         return eventoRepository.findAllComCategoria();
@@ -62,27 +72,54 @@ public class EventoService {
     }
 
     @Transactional
-    public Evento atualizarEvento(Long id, Evento dados) {
-        Evento evento = eventoRepository.findById(id).orElseThrow(() -> new EventoNaoEncontradoException("Evento não encontrado"));
+public Evento atualizarEvento(Long id, Evento dados, UsuarioAutenticado usuario) {
 
-        validarCamposEvento(dados);
+    Evento evento = eventoRepository.findById(id).orElseThrow(() ->
+                    new EventoNaoEncontradoException("Evento não encontrado"));
 
-        evento.setTitulo(dados.getTitulo());
-        evento.setDescricao(dados.getDescricao());
-        evento.setLocal(dados.getLocal());
-        evento.setDataInicio(dados.getDataInicio());
-        evento.setDataFim(dados.getDataFim());
-        evento.setModalidade(dados.getModalidade());
-        evento.setCapacidade(dados.getCapacidade());
-
-        Categoria categoria = categoriaRepository
-                .findById(dados.getCategoria().getId())
-                .orElseThrow(() -> new IllegalArgumentException("Categoria não encontrada"));
-        evento.setCategoria(categoria);
-
-        // status NÃO é alterado aqui (deve ser feito só pelo CAEX)
-        return eventoRepository.save(evento);
+    if (evento.getStatus() != Evento.StatusEvento.AJUSTES_SOLICITADOS) {
+        throw new ConflitoException(
+                "Somente eventos com ajustes solicitados podem ser editados pela liga");
     }
+
+    if (evento.getLiga() == null) {
+        throw new ConflitoException(
+                "Este evento não está associado a uma liga");
+    }
+
+    MembroLiga membro = membroLigaRepository.buscarMembroAtivo(usuario.id(), evento.getLiga().getId(), StatusMembro.ATIVO).orElseThrow(() ->
+            new ConflitoException(
+                    "Você não é um membro ativo da liga responsável pelo evento"));
+
+    if (membro.getCargo() == null
+            || !membro.getCargo().getPermissoes().contains(Permissao.EDITAR_EVENTO)) {
+        throw new ConflitoException(
+                "Seu cargo não possui permissão para editar eventos");
+    }
+
+    validarCamposEvento(dados);
+
+    evento.setTitulo(dados.getTitulo());
+    evento.setDescricao(dados.getDescricao());
+    evento.setLocal(dados.getLocal());
+    evento.setDataInicio(dados.getDataInicio());
+    evento.setDataFim(dados.getDataFim());
+    evento.setModalidade(dados.getModalidade());
+    evento.setCapacidade(dados.getCapacidade());
+
+    Categoria categoria = categoriaRepository
+            .findById(dados.getCategoria().getId())
+            .orElseThrow(() ->
+                    new IllegalArgumentException("Categoria não encontrada"));
+
+    evento.setCategoria(categoria);
+
+    // Retorna o evento para análise do CAEX.
+    // A observação anterior é preservada.
+    evento.setStatus(Evento.StatusEvento.AGUARDANDO_ANALISE);
+
+    return eventoRepository.save(evento);
+}
 
     private static final Map<Evento.StatusEvento, Set<Evento.StatusEvento>> TRANSICOES = Map.of(
         Evento.StatusEvento.AGUARDANDO_ANALISE,
