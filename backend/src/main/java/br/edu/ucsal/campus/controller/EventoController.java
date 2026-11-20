@@ -1,3 +1,4 @@
+
 package br.edu.ucsal.campus.controller;
 
 import br.edu.ucsal.campus.dto.DTOEventoStatusResponse;
@@ -6,7 +7,6 @@ import br.edu.ucsal.campus.dto.DTOEventoRequest;
 import br.edu.ucsal.campus.model.Evento;
 import br.edu.ucsal.campus.service.EventoService;
 import br.edu.ucsal.campus.security.UsuarioAutenticado;
-
 
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -40,71 +40,114 @@ public class EventoController {
         return ResponseEntity.ok(eventoService.listarTodos());
     }
 
-    // Buscar evento por ID
+    // Buscar evento por ID respeitando as regras de acesso
     @GetMapping("/{id}")
-    public ResponseEntity<Evento> buscarPorId(@PathVariable Long id) {
-        return ResponseEntity.ok(eventoService.buscarPorId(id));
+    public ResponseEntity<Evento> buscarPorId(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UsuarioAutenticado usuario) {
+
+        return ResponseEntity.ok(
+                eventoService.buscarPorId(id, usuario)
+        );
     }
 
     // Listar eventos por status
     @GetMapping("/status/{status}")
     public ResponseEntity<List<Evento>> listarPorStatus(
             @PathVariable String status) {
-        return ResponseEntity.ok(eventoService.listarPorStatus(Evento.StatusEvento.valueOf(status.toUpperCase())));
+
+        return ResponseEntity.ok(
+                eventoService.listarPorStatus(
+                        Evento.StatusEvento.valueOf(status.toUpperCase())
+                )
+        );
     }
 
     // Listar eventos por categoria
     @GetMapping("/categoria/{categoriaId}")
     public ResponseEntity<List<Evento>> listarPorCategoria(
             @PathVariable Long categoriaId) {
-        return ResponseEntity.ok(eventoService.listarPorCategoria(categoriaId));
+
+        return ResponseEntity.ok(
+                eventoService.listarPorCategoria(categoriaId)
+        );
     }
 
-    //Buscar evento por data
-    @GetMapping ("/data")
-    public ResponseEntity<List<Evento>> listarPorData(@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate data) {
-        return ResponseEntity.ok(eventoService.listarPorData(data));
+    // Buscar eventos por data
+    @GetMapping("/data")
+    public ResponseEntity<List<Evento>> listarPorData(
+            @RequestParam
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate data) {
+
+        return ResponseEntity.ok(
+                eventoService.listarPorData(data)
+        );
     }
 
-    @GetMapping ("/periodo")
-    public ResponseEntity<List<Evento>> listarPorPeriodo(@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate inicio,@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fim){
+    // Buscar eventos por período
+    @GetMapping("/periodo")
+    public ResponseEntity<List<Evento>> listarPorPeriodo(
+            @RequestParam
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate inicio,
 
-        return ResponseEntity.ok(eventoService.listarPorPeriodo(inicio, fim));
+            @RequestParam
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate fim) {
+
+        return ResponseEntity.ok(
+                eventoService.listarPorPeriodo(inicio, fim)
+        );
     }
 
     // Visitante (sem login): somente eventos aprovados
     @GetMapping("/publicos")
     public ResponseEntity<List<Evento>> listarPublicos() {
-    return ResponseEntity.ok(eventoService.listarPublicos());
+        return ResponseEntity.ok(
+                eventoService.listarPublicos()
+        );
     }
 
     // Cadastrar evento pela liga
-@PostMapping
-public ResponseEntity<Evento> criar(@RequestBody DTOEventoRequest request,@AuthenticationPrincipal UsuarioAutenticado usuario) {
+    @PostMapping
+    public ResponseEntity<Evento> criar(
+            @RequestBody DTOEventoRequest request,
+            @AuthenticationPrincipal UsuarioAutenticado usuario) {
 
-    Evento novoEvento = eventoService.criar(request, usuario);
+        Evento novoEvento = eventoService.criar(request, usuario);
 
-    return ResponseEntity
-            .status(HttpStatus.CREATED)
-            .body(novoEvento);
-}
-
-    //Atualizar dados evento
-    @PutMapping("/{id}")
-public ResponseEntity<Evento> atualizarEvento(@PathVariable Long id, @RequestBody Evento eventoAtualizado, @AuthenticationPrincipal UsuarioAutenticado usuario) {
-    
-    return ResponseEntity.ok(
-            eventoService.atualizarEvento(id, eventoAtualizado, usuario)
-    );
-}
-
-    //Atualizar status do evento (Deve ser feito apenas pelo CAEX)
-    @PutMapping("/{id}/status")
-    public ResponseEntity<DTOEventoStatusResponse> atualizarStatus(@PathVariable Long id,@RequestBody DTOStatusRequest request) {
-        
-        Evento atualizado = eventoService.atualizarStatus(id, request);
-        return ResponseEntity.ok(DTOEventoStatusResponse.de(atualizado));
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(novoEvento);
     }
 
-    
+    // Atualizar dados do evento
+    @PutMapping("/{id}")
+    public ResponseEntity<Evento> atualizarEvento(
+            @PathVariable Long id,
+            @RequestBody Evento eventoAtualizado,
+            @AuthenticationPrincipal UsuarioAutenticado usuario) {
+
+        return ResponseEntity.ok(
+                eventoService.atualizarEvento(
+                        id,
+                        eventoAtualizado,
+                        usuario
+                )
+        );
+    }
+
+    // Atualizar status do evento (Deve ser feito apenas pelo CAEX)
+    @PutMapping("/{id}/status")
+    public ResponseEntity<DTOEventoStatusResponse> atualizarStatus(
+            @PathVariable Long id,
+            @RequestBody DTOStatusRequest request) {
+
+        Evento atualizado = eventoService.atualizarStatus(id, request);
+
+        return ResponseEntity.ok(
+                DTOEventoStatusResponse.de(atualizado)
+        );
+    }
 }

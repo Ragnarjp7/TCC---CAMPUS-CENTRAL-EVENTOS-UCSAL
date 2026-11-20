@@ -13,7 +13,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
-
 @Entity
 @Table(name = "ligas")
 public class Liga {
@@ -40,6 +39,10 @@ public class Liga {
     @JoinColumn(name = "orientador_id")
     private Professor orientador;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "aluno_responsavel_id", nullable = false)
+    private Aluno alunoResponsavel;
+
     public Liga() {}
 
     public Long getId() { return id; }
@@ -53,4 +56,12 @@ public class Liga {
     public void setCurso(Curso curso) { this.curso = curso; }
     public Professor getOrientador() { return orientador; }
     public void setOrientador(Professor orientador) { this.orientador = orientador; }
+
+    public Aluno getAlunoResponsavel() {
+        return alunoResponsavel;
+    }
+
+    public void setAlunoResponsavel(Aluno alunoResponsavel) {
+        this.alunoResponsavel = alunoResponsavel;
+    }
 }

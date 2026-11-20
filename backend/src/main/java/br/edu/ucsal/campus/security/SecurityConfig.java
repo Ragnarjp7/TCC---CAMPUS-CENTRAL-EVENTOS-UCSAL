@@ -1,4 +1,3 @@
-
 package br.edu.ucsal.campus.security;
 
 import br.edu.ucsal.campus.repository.UsuarioRepository;
@@ -60,9 +59,20 @@ public class SecurityConfig {
 
                 // Rotas públicas
                 .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
-                .requestMatchers(HttpMethod.GET,"/api/health", "/eventos/publicos", "/cursos").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/health", "/cursos").permitAll()
                 .requestMatchers(HttpMethod.GET, "/categorias", "/categorias/*").permitAll()
                 .requestMatchers(HttpMethod.POST, "/alunos").permitAll()
+
+                // Consulta pública de eventos aprovados
+                .requestMatchers(HttpMethod.GET, "/eventos/publicos").permitAll()
+                .requestMatchers(HttpMethod.GET, "/eventos/*").permitAll()
+                .requestMatchers(HttpMethod.GET, "/eventos/categoria/*").permitAll()
+                .requestMatchers(HttpMethod.GET, "/eventos/data").permitAll()
+                .requestMatchers(HttpMethod.GET, "/eventos/periodo").permitAll()
+
+                // Consultas administrativas de eventos
+                .requestMatchers(HttpMethod.GET, "/eventos").hasAnyRole("CAEX", "ADMIN")
+                .requestMatchers(HttpMethod.GET, "/eventos/status/**").hasAnyRole("CAEX", "ADMIN")
 
                 // Aluno logado
                 .requestMatchers(HttpMethod.POST, "/eventos/*/inscricoes").hasRole("ALUNO")

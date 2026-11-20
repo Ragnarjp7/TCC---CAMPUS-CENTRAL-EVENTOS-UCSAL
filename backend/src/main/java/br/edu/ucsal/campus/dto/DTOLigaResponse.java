@@ -11,7 +11,11 @@ public record DTOLigaResponse(
         Long cursoId,
         String cursoNome,
         Long orientadorId,
-        String orientadorNome
+        String orientadorNome,
+        Long alunoResponsavelId,
+        String alunoResponsavelNome,
+        String alunoResponsavelEmail,
+        String alunoResponsavelMatricula
 ) {
 
     public static DTOLigaResponse de(Liga liga) {
@@ -27,6 +31,18 @@ public record DTOLigaResponse(
                         : null,
                 liga.getOrientador() != null
                         ? liga.getOrientador().getUsuario().getNome()
+                        : null,
+                liga.getAlunoResponsavel() != null
+                        ? liga.getAlunoResponsavel().getId()
+                        : null,
+                liga.getAlunoResponsavel() != null
+                        ? liga.getAlunoResponsavel().getUsuario().getNome()
+                        : null,
+                liga.getAlunoResponsavel() != null
+                        ? liga.getAlunoResponsavel().getUsuario().getEmail()
+                        : null,
+                liga.getAlunoResponsavel() != null
+                        ? liga.getAlunoResponsavel().getMatricula()
                         : null
         );
     }
