@@ -87,7 +87,9 @@ public class SecurityConfig {
 
                 // Gerenciamento de membros das ligas
                 .requestMatchers(HttpMethod.GET, "/ligas/*/solicitacoes").authenticated()
+                .requestMatchers(HttpMethod.GET, "/ligas/*/membros").authenticated()
                 .requestMatchers(HttpMethod.PUT, "/ligas/*/membros/*/aprovar", "/ligas/*/membros/*/recusar").authenticated()
+                .requestMatchers(HttpMethod.PUT, "/ligas/*/membros/*/desativar").authenticated()
 
                 // Gerenciamento de cargos das ligas
                 .requestMatchers(HttpMethod.GET, "/ligas/*/cargos").authenticated()

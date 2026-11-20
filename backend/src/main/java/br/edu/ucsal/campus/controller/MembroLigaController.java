@@ -43,11 +43,10 @@ public class MembroLigaController {
             @PathVariable Long ligaId,
             @AuthenticationPrincipal UsuarioAutenticado usuario) {
 
-        List<DTOMembroLigaResponse> solicitacoes =
-                membroLigaService.listarSolicitacoesPendentes(ligaId, usuario)
-                        .stream()
-                        .map(DTOMembroLigaResponse::de)
-                        .toList();
+        List<DTOMembroLigaResponse> solicitacoes = membroLigaService.listarSolicitacoesPendentes(ligaId, usuario)
+                .stream()
+                .map(DTOMembroLigaResponse::de)
+                .toList();
 
         return ResponseEntity.ok(solicitacoes);
     }
@@ -76,5 +75,32 @@ public class MembroLigaController {
                 ligaId, membroId, usuario);
 
         return ResponseEntity.ok(DTOMembroLigaResponse.de(membro));
+    }
+
+    @PutMapping("/{ligaId}/membros/{membroId}/desativar")
+    public ResponseEntity<DTOMembroLigaResponse> desativarMembro(
+            @PathVariable Long ligaId,
+            @PathVariable Long membroId,
+            @AuthenticationPrincipal UsuarioAutenticado usuario) {
+
+        MembroLiga membro = membroLigaService.desativarMembro(
+                ligaId,
+                membroId,
+                usuario);
+
+        return ResponseEntity.ok(DTOMembroLigaResponse.de(membro));
+    }
+
+    @GetMapping("/{ligaId}/membros")
+    public ResponseEntity<List<DTOMembroLigaResponse>> listarMembros(
+            @PathVariable Long ligaId,
+            @AuthenticationPrincipal UsuarioAutenticado usuario) {
+
+        List<DTOMembroLigaResponse> membros = membroLigaService.listarMembros(ligaId, usuario)
+                .stream()
+                .map(DTOMembroLigaResponse::de)
+                .toList();
+
+        return ResponseEntity.ok(membros);
     }
 }
