@@ -7,7 +7,6 @@ import br.edu.ucsal.campus.model.Cargo;
 import br.edu.ucsal.campus.model.MembroLiga;
 import br.edu.ucsal.campus.security.UsuarioAutenticado;
 import br.edu.ucsal.campus.service.CargoService;
-import br.edu.ucsal.campus.repository.CargoRepository;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,14 +20,9 @@ import java.util.List;
 public class CargoController {
 
     private final CargoService cargoService;
-    private final CargoRepository cargoRepository;
 
-    public CargoController(
-            CargoService cargoService,
-            CargoRepository cargoRepository) {
-
+    public CargoController(CargoService cargoService) {
         this.cargoService = cargoService;
-        this.cargoRepository = cargoRepository;
     }
 
     // Lista os cargos de uma liga
@@ -36,7 +30,7 @@ public class CargoController {
     public ResponseEntity<List<DTOCargoResponse>> listar(
             @PathVariable Long ligaId) {
 
-        List<DTOCargoResponse> cargos = cargoRepository.findByLigaId(ligaId)
+        List<DTOCargoResponse> cargos = cargoService.listar(ligaId)
                 .stream()
                 .map(DTOCargoResponse::de)
                 .toList();

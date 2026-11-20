@@ -15,6 +15,10 @@ import br.edu.ucsal.campus.security.UsuarioAutenticado;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
+
 @Service
 public class CargoService {
 
@@ -57,8 +61,8 @@ public class CargoService {
         cargo.setLiga(liga);
         cargo.setPermissoes(
                 request.permissoes() == null
-                        ? new java.util.HashSet<>()
-                        : new java.util.HashSet<>(request.permissoes()));
+                        ? new HashSet<>()
+                        : new HashSet<>(request.permissoes()));
 
         return cargoRepository.save(cargo);
     }
@@ -89,13 +93,47 @@ public class CargoService {
                     "Já existe outro cargo com esse nome nesta liga");
         }
 
+        Set<Permissao> novasPermissoes = request.permissoes() == null
+                ? new HashSet<>()
+                : new HashSet<>(request.permissoes());
+
+        if (cargo.getPermissoes().contains(Permissao.GERENCIAR_CARGOS)
+                && !novasPermissoes.contains(Permissao.GERENCIAR_CARGOS)) {
+
+            long membrosNoCargo = membroLigaRepository
+                    .contarMembrosAtivosComPermissaoNoCargo(
+                            ligaId,
+                            cargoId,
+                            StatusMembro.ATIVO,
+                            Permissao.GERENCIAR_CARGOS);
+
+            long responsaveisNaLiga = membroLigaRepository
+                    .contarMembrosAtivosComPermissao(
+                            ligaId,
+                            StatusMembro.ATIVO,
+                            Permissao.GERENCIAR_CARGOS);
+
+            if (responsaveisNaLiga - membrosNoCargo < 1) {
+                throw new ConflitoException(
+                        "Não é possível remover a permissão GERENCIAR_CARGOS deste cargo, pois a liga ficaria sem responsável");
+            }
+        }
+
         cargo.setNome(request.nome().trim());
-        cargo.setPermissoes(
-                request.permissoes() == null
-                        ? new java.util.HashSet<>()
-                        : new java.util.HashSet<>(request.permissoes()));
+        cargo.setPermissoes(novasPermissoes);
 
         return cargoRepository.save(cargo);
+    }
+
+    // Lista os cargos de uma liga
+    @Transactional(readOnly = true)
+    public List<Cargo> listar(Long ligaId) {
+
+        if (!ligaRepository.existsById(ligaId)) {
+            throw new IllegalArgumentException("Liga não encontrada");
+        }
+
+        return cargoRepository.findByLigaId(ligaId);
     }
 
     // Valida os dados enviados
@@ -171,6 +209,27 @@ public class CargoService {
         if (!cargo.getLiga().getId().equals(ligaId)) {
             throw new ConflitoException(
                     "Este cargo não pertence à liga informada");
+        }
+
+        boolean possuiPermissaoAtual = membro.getCargo() != null
+                && membro.getCargo().getPermissoes()
+                        .contains(Permissao.GERENCIAR_CARGOS);
+
+        boolean novoCargoPossuiPermissao = cargo.getPermissoes()
+                .contains(Permissao.GERENCIAR_CARGOS);
+
+        if (possuiPermissaoAtual && !novoCargoPossuiPermissao) {
+
+            long responsaveisNaLiga = membroLigaRepository
+                    .contarMembrosAtivosComPermissao(
+                            ligaId,
+                            StatusMembro.ATIVO,
+                            Permissao.GERENCIAR_CARGOS);
+
+            if (responsaveisNaLiga <= 1) {
+                throw new ConflitoException(
+                        "Não é possível atribuir este cargo, pois a liga ficaria sem responsável pelo gerenciamento de cargos");
+            }
         }
 
         membro.setCargo(cargo);

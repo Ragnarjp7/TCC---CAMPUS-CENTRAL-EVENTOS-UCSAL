@@ -180,6 +180,21 @@ public class MembroLigaService {
                     "Somente membros ativos podem ser desativados");
         }
 
+        if (membro.getCargo() != null
+                && membro.getCargo().getPermissoes()
+                        .contains(Permissao.GERENCIAR_CARGOS)) {
+
+            long responsaveis = membroLigaRepository.contarMembrosAtivosComPermissao(
+                    ligaId,
+                    StatusMembro.ATIVO,
+                    Permissao.GERENCIAR_CARGOS);
+
+            if (responsaveis <= 1) {
+                throw new ConflitoException(
+                        "Não é possível desativar o último responsável pelo gerenciamento de cargos da liga");
+            }
+        }
+
         membro.setStatus(StatusMembro.INATIVO);
 
         return membroLigaRepository.save(membro);
