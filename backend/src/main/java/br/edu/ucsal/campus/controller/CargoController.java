@@ -2,7 +2,9 @@ package br.edu.ucsal.campus.controller;
 
 import br.edu.ucsal.campus.dto.DTOCargoRequest;
 import br.edu.ucsal.campus.dto.DTOCargoResponse;
+import br.edu.ucsal.campus.dto.DTOMembroLigaResponse;
 import br.edu.ucsal.campus.model.Cargo;
+import br.edu.ucsal.campus.model.MembroLiga;
 import br.edu.ucsal.campus.security.UsuarioAutenticado;
 import br.edu.ucsal.campus.service.CargoService;
 import br.edu.ucsal.campus.repository.CargoRepository;
@@ -34,11 +36,10 @@ public class CargoController {
     public ResponseEntity<List<DTOCargoResponse>> listar(
             @PathVariable Long ligaId) {
 
-        List<DTOCargoResponse> cargos =
-                cargoRepository.findByLigaId(ligaId)
-                        .stream()
-                        .map(DTOCargoResponse::de)
-                        .toList();
+        List<DTOCargoResponse> cargos = cargoRepository.findByLigaId(ligaId)
+                .stream()
+                .map(DTOCargoResponse::de)
+                .toList();
 
         return ResponseEntity.ok(cargos);
     }
@@ -70,5 +71,19 @@ public class CargoController {
                 ligaId, cargoId, request, usuario);
 
         return ResponseEntity.ok(DTOCargoResponse.de(cargo));
+    }
+
+    // Atribui um cargo a um membro da liga
+    @PutMapping("/{membroId}/membros/cargo/{cargoId}")
+    public ResponseEntity<DTOMembroLigaResponse> atribuirCargo(
+            @PathVariable Long ligaId,
+            @PathVariable Long membroId,
+            @PathVariable Long cargoId,
+            @AuthenticationPrincipal UsuarioAutenticado usuario) {
+
+        MembroLiga membro = cargoService.atribuirCargo(
+                ligaId, membroId, cargoId, usuario);
+
+        return ResponseEntity.ok(DTOMembroLigaResponse.de(membro));
     }
 }

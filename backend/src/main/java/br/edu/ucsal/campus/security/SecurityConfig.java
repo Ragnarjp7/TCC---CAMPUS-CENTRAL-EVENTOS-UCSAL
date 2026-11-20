@@ -93,6 +93,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/ligas/*/cargos").authenticated()
                 .requestMatchers(HttpMethod.POST, "/ligas/*/cargos").authenticated()
                 .requestMatchers(HttpMethod.PUT, "/ligas/*/cargos/*").authenticated()
+                .requestMatchers(HttpMethod.PUT, "/ligas/*/cargos/*/membros/cargo/*").authenticated()
 
                 // Todo o restante exige login
                 .anyRequest().authenticated()

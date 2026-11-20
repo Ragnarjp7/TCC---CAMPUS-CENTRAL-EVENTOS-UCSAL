@@ -43,8 +43,7 @@ public class CargoService {
         validarRequest(request);
 
         Liga liga = ligaRepository.findById(ligaId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException("Liga não encontrada"));
+                .orElseThrow(() -> new IllegalArgumentException("Liga não encontrada"));
 
         if (cargoRepository.existsByLigaIdAndNomeIgnoreCase(
                 ligaId, request.nome().trim())) {
@@ -59,8 +58,7 @@ public class CargoService {
         cargo.setPermissoes(
                 request.permissoes() == null
                         ? new java.util.HashSet<>()
-                        : new java.util.HashSet<>(request.permissoes())
-        );
+                        : new java.util.HashSet<>(request.permissoes()));
 
         return cargoRepository.save(cargo);
     }
@@ -77,8 +75,7 @@ public class CargoService {
         validarRequest(request);
 
         Cargo cargo = cargoRepository.findById(cargoId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException("Cargo não encontrado"));
+                .orElseThrow(() -> new IllegalArgumentException("Cargo não encontrado"));
 
         if (!cargo.getLiga().getId().equals(ligaId)) {
             throw new ConflitoException(
@@ -96,8 +93,7 @@ public class CargoService {
         cargo.setPermissoes(
                 request.permissoes() == null
                         ? new java.util.HashSet<>()
-                        : new java.util.HashSet<>(request.permissoes())
-        );
+                        : new java.util.HashSet<>(request.permissoes()));
 
         return cargoRepository.save(cargo);
     }
@@ -133,10 +129,9 @@ public class CargoService {
         MembroLiga membro = membroLigaRepository.buscarMembroAtivo(
                 usuario.id(),
                 ligaId,
-                StatusMembro.ATIVO
-        ).orElseThrow(() ->
-                new ConflitoException(
-                        "Você não é membro ativo desta liga"));
+                StatusMembro.ATIVO).orElseThrow(
+                        () -> new ConflitoException(
+                                "Você não é membro ativo desta liga"));
 
         if (membro.getCargo() == null
                 || !membro.getCargo().getPermissoes()
@@ -145,5 +140,41 @@ public class CargoService {
             throw new ConflitoException(
                     "Seu cargo não possui permissão para gerenciar cargos");
         }
+    }
+
+    // Atribui um cargo a um membro da liga
+    @Transactional
+    public MembroLiga atribuirCargo(
+            Long ligaId,
+            Long membroId,
+            Long cargoId,
+            UsuarioAutenticado usuario) {
+
+        validarPermissaoGerenciarCargos(ligaId, usuario);
+
+        MembroLiga membro = membroLigaRepository.findById(membroId)
+                .orElseThrow(() -> new IllegalArgumentException("Membro não encontrado"));
+
+        if (!membro.getLiga().getId().equals(ligaId)) {
+            throw new ConflitoException(
+                    "Este membro não pertence à liga informada");
+        }
+
+        if (membro.getStatus() != StatusMembro.ATIVO) {
+            throw new ConflitoException(
+                    "Somente membros ativos podem receber cargos");
+        }
+
+        Cargo cargo = cargoRepository.findById(cargoId)
+                .orElseThrow(() -> new IllegalArgumentException("Cargo não encontrado"));
+
+        if (!cargo.getLiga().getId().equals(ligaId)) {
+            throw new ConflitoException(
+                    "Este cargo não pertence à liga informada");
+        }
+
+        membro.setCargo(cargo);
+
+        return membroLigaRepository.save(membro);
     }
 }
