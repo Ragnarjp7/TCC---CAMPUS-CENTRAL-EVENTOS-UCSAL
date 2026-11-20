@@ -56,100 +56,45 @@ public class SecurityConfig {
                 .requestMatchers("/error").permitAll()
 
                 // Solicitação de participação em liga
-                .requestMatchers(
-                        HttpMethod.POST,
-                        "/ligas/*/solicitar-participacao"
-                ).hasRole("ALUNO")
+                .requestMatchers(HttpMethod.POST, "/ligas/*/solicitar-participacao").hasRole("ALUNO")
 
                 // Rotas públicas
                 .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
-                .requestMatchers(
-                        HttpMethod.GET,
-                        "/api/health",
-                        "/eventos/publicos",
-                        "/cursos"
-                ).permitAll()
-                .requestMatchers(
-                        HttpMethod.GET,
-                        "/categorias",
-                        "/categorias/*"
-                ).permitAll()
+                .requestMatchers(HttpMethod.GET,"/api/health", "/eventos/publicos", "/cursos").permitAll()
+                .requestMatchers(HttpMethod.GET, "/categorias", "/categorias/*").permitAll()
                 .requestMatchers(HttpMethod.POST, "/alunos").permitAll()
 
                 // Aluno logado
-                .requestMatchers(
-                        HttpMethod.POST,
-                        "/eventos/*/inscricoes"
-                ).hasRole("ALUNO")
-                .requestMatchers(
-                        HttpMethod.DELETE,
-                        "/eventos/*/inscricoes"
-                ).hasRole("ALUNO")
-                .requestMatchers(
-                        "/alunos/me",
-                        "/alunos/me/**"
-                ).hasRole("ALUNO")
+                .requestMatchers(HttpMethod.POST, "/eventos/*/inscricoes").hasRole("ALUNO")
+                .requestMatchers(HttpMethod.DELETE, "/eventos/*/inscricoes").hasRole("ALUNO")
+                .requestMatchers("/alunos/me", "/alunos/me/**").hasRole("ALUNO")
 
                 // Somente CAEX e Admin
-                .requestMatchers(
-                        HttpMethod.PUT,
-                        "/eventos/*/status"
-                ).hasAnyRole("CAEX", "ADMIN")
-                .requestMatchers(
-                        HttpMethod.POST,
-                        "/categorias"
-                ).hasAnyRole("CAEX", "ADMIN")
-                .requestMatchers(
-                        HttpMethod.GET,
-                        "/eventos/*/inscricoes"
-                ).hasAnyRole("CAEX", "ADMIN")
-                .requestMatchers(
-                        HttpMethod.GET,
-                        "/alunos",
-                        "/alunos/*"
-                ).hasAnyRole("CAEX", "ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/eventos/*/status").hasAnyRole("CAEX", "ADMIN")
+                .requestMatchers(HttpMethod.POST, "/categorias").hasAnyRole("CAEX", "ADMIN")
+                .requestMatchers(HttpMethod.GET, "/eventos/*/inscricoes").hasAnyRole("CAEX", "ADMIN")
+                .requestMatchers(HttpMethod.GET, "/alunos", "/alunos/*").hasAnyRole("CAEX", "ADMIN")
 
                 // Cadastro e edição de eventos
-                .requestMatchers(
-                        HttpMethod.POST,
-                        "/eventos"
-                ).authenticated()
-                .requestMatchers(
-                        HttpMethod.PUT,
-                        "/eventos/*"
-                ).authenticated()
+                .requestMatchers(HttpMethod.POST, "/eventos").authenticated()
+                .requestMatchers(HttpMethod.PUT, "/eventos/*").authenticated()
 
                 // Ligas acadêmicas
-                .requestMatchers(
-                        HttpMethod.GET,
-                        "/ligas/publicas"
-                ).permitAll()
-                .requestMatchers(
-                        HttpMethod.POST,
-                        "/ligas"
-                ).hasRole("COORDENADOR")
-                .requestMatchers(
-                        HttpMethod.GET,
-                        "/ligas/pendentes"
-                ).hasRole("COORDENADOR")
-                .requestMatchers(
-                        HttpMethod.PUT,
-                        "/ligas/*/aprovar",
-                        "/ligas/*/rejeitar"
-                ).hasRole("COORDENADOR")
+                .requestMatchers(HttpMethod.GET, "/ligas/publicas").permitAll()
+                .requestMatchers(HttpMethod.POST, "/ligas").hasRole("COORDENADOR")
+                .requestMatchers(HttpMethod.GET, "/ligas/pendentes").hasRole("COORDENADOR")
+                .requestMatchers(HttpMethod.PUT, "/ligas/*/aprovar", "/ligas/*/rejeitar").hasRole("COORDENADOR")
 
                 // Gerenciamento de membros das ligas
-                .requestMatchers(
-                        HttpMethod.GET,
-                        "/ligas/*/solicitacoes"
-                ).authenticated()
-                .requestMatchers(
-                        HttpMethod.PUT,
-                        "/ligas/*/membros/*/aprovar",
-                        "/ligas/*/membros/*/recusar"
-                ).authenticated()
+                .requestMatchers(HttpMethod.GET, "/ligas/*/solicitacoes").authenticated()
+                .requestMatchers(HttpMethod.PUT, "/ligas/*/membros/*/aprovar", "/ligas/*/membros/*/recusar").authenticated()
 
-                // Todo o restante exige autenticação
+                // Gerenciamento de cargos das ligas
+                .requestMatchers(HttpMethod.GET, "/ligas/*/cargos").authenticated()
+                .requestMatchers(HttpMethod.POST, "/ligas/*/cargos").authenticated()
+                .requestMatchers(HttpMethod.PUT, "/ligas/*/cargos/*").authenticated()
+
+                // Todo o restante exige login
                 .anyRequest().authenticated()
             )
             .addFilterBefore(
