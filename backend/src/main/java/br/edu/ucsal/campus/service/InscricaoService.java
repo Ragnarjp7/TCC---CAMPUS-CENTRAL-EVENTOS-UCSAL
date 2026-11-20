@@ -7,9 +7,13 @@ import br.edu.ucsal.campus.exception.NaoEncontradoException;
 import br.edu.ucsal.campus.model.Aluno;
 import br.edu.ucsal.campus.model.Evento;
 import br.edu.ucsal.campus.model.Inscricao;
+import br.edu.ucsal.campus.model.enums.Papel;
 import br.edu.ucsal.campus.repository.AlunoRepository;
 import br.edu.ucsal.campus.repository.EventoRepository;
 import br.edu.ucsal.campus.repository.InscricaoRepository;
+import br.edu.ucsal.campus.security.UsuarioAutenticado;
+
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,7 +27,11 @@ public class InscricaoService {
     private final EventoRepository eventoRepository;
     private final AlunoRepository alunoRepository;
 
-    public InscricaoService(InscricaoRepository inscricaoRepository, EventoRepository eventoRepository, AlunoRepository alunoRepository) {
+    public InscricaoService(
+            InscricaoRepository inscricaoRepository,
+            EventoRepository eventoRepository,
+            AlunoRepository alunoRepository) {
+
         this.inscricaoRepository = inscricaoRepository;
         this.eventoRepository = eventoRepository;
         this.alunoRepository = alunoRepository;
@@ -31,14 +39,18 @@ public class InscricaoService {
 
     @Transactional
     public DTOInscricaoResponse inscrever(Long eventoId, Long alunoId) {
+
         if (alunoId == null) {
             throw new IllegalArgumentException("O alunoId é obrigatório");
         }
 
-        Evento evento = eventoRepository.findByIdParaInscricao(eventoId).orElseThrow(() -> new EventoNaoEncontradoException("Evento não encontrado"));
+        Evento evento = eventoRepository.findByIdParaInscricao(eventoId)
+                .orElseThrow(() ->
+                        new EventoNaoEncontradoException("Evento não encontrado"));
 
         Aluno aluno = alunoRepository.findById(alunoId)
-                .orElseThrow(() -> new NaoEncontradoException("Aluno não encontrado"));
+                .orElseThrow(() ->
+                        new NaoEncontradoException("Aluno não encontrado"));
 
         if (evento.getStatus() != Evento.StatusEvento.APROVADO) {
             throw new IllegalArgumentException(
@@ -46,44 +58,77 @@ public class InscricaoService {
         }
 
         if (evento.getDataFim().isBefore(LocalDateTime.now())) {
-            throw new IllegalArgumentException("Este evento já foi encerrado");
+            throw new IllegalArgumentException(
+                    "Este evento já foi encerrado");
         }
 
         if (inscricaoRepository.existsByAlunoIdAndEventoId(alunoId, eventoId)) {
-            throw new ConflitoException("O aluno já está inscrito neste evento");
+            throw new ConflitoException(
+                    "O aluno já está inscrito neste evento");
         }
 
         if (evento.getCapacidade() != null
                 && inscricaoRepository.countByEventoId(eventoId) >= evento.getCapacidade()) {
-            throw new ConflitoException("O evento atingiu a capacidade máxima");
+
+            throw new ConflitoException(
+                    "O evento atingiu a capacidade máxima");
         }
 
-        Inscricao salva = inscricaoRepository.save(new Inscricao(aluno, evento));
+        Inscricao salva = inscricaoRepository.save(
+                new Inscricao(aluno, evento));
+
         return DTOInscricaoResponse.de(salva);
     }
 
     @Transactional
     public void cancelar(Long eventoId, Long alunoId) {
-        Inscricao inscricao = inscricaoRepository.findByAlunoIdAndEventoId(alunoId, eventoId).orElseThrow(() -> new NaoEncontradoException("Inscrição não encontrada"));
+
+        Inscricao inscricao = inscricaoRepository
+                .findByAlunoIdAndEventoId(alunoId, eventoId)
+                .orElseThrow(() ->
+                        new NaoEncontradoException("Inscrição não encontrada"));
 
         inscricaoRepository.delete(inscricao);
     }
 
+    // Lista os inscritos somente para CAEX e ADMIN
     @Transactional(readOnly = true)
-    public List<DTOInscricaoResponse> listarPorEvento(Long eventoId) {
+    public List<DTOInscricaoResponse> listarPorEvento(
+            Long eventoId,
+            UsuarioAutenticado usuario) {
+
+        if (usuario == null) {
+            throw new AccessDeniedException("Usuário não autenticado");
+        }
+
+        if (usuario.papeis() == null
+                || (!usuario.papeis().contains(Papel.CAEX)
+                && !usuario.papeis().contains(Papel.ADMIN))) {
+
+            throw new AccessDeniedException(
+                    "Somente CAEX ou ADMIN podem visualizar os inscritos do evento");
+        }
+
         if (!eventoRepository.existsById(eventoId)) {
             throw new EventoNaoEncontradoException("Evento não encontrado");
         }
+
         return inscricaoRepository.findByEventoIdCompleto(eventoId)
-                .stream().map(DTOInscricaoResponse::de).toList();
+                .stream()
+                .map(DTOInscricaoResponse::de)
+                .toList();
     }
 
     @Transactional(readOnly = true)
     public List<DTOInscricaoResponse> listarPorAluno(Long alunoId) {
+
         if (!alunoRepository.existsById(alunoId)) {
             throw new NaoEncontradoException("Aluno não encontrado");
         }
+
         return inscricaoRepository.findByAlunoIdCompleto(alunoId)
-                .stream().map(DTOInscricaoResponse::de).toList();
+                .stream()
+                .map(DTOInscricaoResponse::de)
+                .toList();
     }
 }

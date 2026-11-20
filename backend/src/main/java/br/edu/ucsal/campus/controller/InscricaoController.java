@@ -1,4 +1,3 @@
-
 package br.edu.ucsal.campus.controller;
 
 import br.edu.ucsal.campus.dto.DTOInscricaoResponse;
@@ -40,13 +39,14 @@ public class InscricaoController {
                 .body(inscricaoService.inscrever(eventoId, alunoId));
     }
 
-    // Lista os inscritos do evento
+    // Lista os inscritos do evento (CAEX ou ADMIN)
     @GetMapping
     public ResponseEntity<List<DTOInscricaoResponse>> listarPorEvento(
-            @PathVariable Long eventoId) {
+            @PathVariable Long eventoId,
+            @AuthenticationPrincipal UsuarioAutenticado usuario) {
 
         return ResponseEntity.ok(
-                inscricaoService.listarPorEvento(eventoId));
+                inscricaoService.listarPorEvento(eventoId, usuario));
     }
 
     // O aluno logado cancela a própria inscrição

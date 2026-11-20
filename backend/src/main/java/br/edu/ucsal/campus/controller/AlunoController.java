@@ -1,20 +1,18 @@
 package br.edu.ucsal.campus.controller;
 
+import br.edu.ucsal.campus.dto.DTOAlunoRequest;
 import br.edu.ucsal.campus.dto.DTOAlunoResponse;
 import br.edu.ucsal.campus.dto.DTOInscricaoResponse;
+import br.edu.ucsal.campus.model.enums.Papel;
+import br.edu.ucsal.campus.security.UsuarioAutenticado;
 import br.edu.ucsal.campus.service.AlunoService;
 import br.edu.ucsal.campus.service.InscricaoService;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import br.edu.ucsal.campus.security.UsuarioAutenticado;
-import br.edu.ucsal.campus.dto.DTOAlunoRequest;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -25,7 +23,10 @@ public class AlunoController {
     private final AlunoService alunoService;
     private final InscricaoService inscricaoService;
 
-    public AlunoController(AlunoService alunoService, InscricaoService inscricaoService) {
+    public AlunoController(
+            AlunoService alunoService,
+            InscricaoService inscricaoService) {
+
         this.alunoService = alunoService;
         this.inscricaoService = inscricaoService;
     }
@@ -36,41 +37,57 @@ public class AlunoController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<DTOAlunoResponse> buscarPorId(@PathVariable Long id) {
+    public ResponseEntity<DTOAlunoResponse> buscarPorId(
+            @PathVariable Long id) {
+
         return ResponseEntity.ok(alunoService.buscarPorId(id));
     }
 
     @PostMapping
-    public ResponseEntity<DTOAlunoResponse> criar(@RequestBody DTOAlunoRequest aluno) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(alunoService.criar(aluno));
+    public ResponseEntity<DTOAlunoResponse> criar(
+            @RequestBody DTOAlunoRequest aluno) {
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(alunoService.criar(aluno));
     }
 
-    // Eventos em que o aluno está inscrito
+    // Consulta inscrições de outro aluno (somente CAEX ou ADMIN)
     @GetMapping("/{id}/inscricoes")
-    public ResponseEntity<List<DTOInscricaoResponse>> listarInscricoes(@PathVariable Long id) {
+    public ResponseEntity<List<DTOInscricaoResponse>> listarInscricoes(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UsuarioAutenticado usuario) {
+
+        if (usuario == null
+                || usuario.papeis() == null
+                || (!usuario.papeis().contains(Papel.CAEX)
+                && !usuario.papeis().contains(Papel.ADMIN))) {
+
+            throw new AccessDeniedException(
+                    "Você não tem permissão para consultar as inscrições deste aluno");
+        }
+
         return ResponseEntity.ok(inscricaoService.listarPorAluno(id));
     }
 
     // Perfil do aluno logado
     @GetMapping("/me")
     public ResponseEntity<DTOAlunoResponse> meuPerfil(
-        @AuthenticationPrincipal UsuarioAutenticado usuario) {
+            @AuthenticationPrincipal UsuarioAutenticado usuario) {
 
-    return ResponseEntity.ok(
-            alunoService.buscarPorUsuarioId(usuario.id())
-    );
+        return ResponseEntity.ok(
+                alunoService.buscarPorUsuarioId(usuario.id())
+        );
     }
 
-    // Inscrições do aluno logado
+    // Inscrições do próprio aluno logado
     @GetMapping("/me/inscricoes")
     public ResponseEntity<List<DTOInscricaoResponse>> minhasInscricoes(
-        @AuthenticationPrincipal UsuarioAutenticado usuario) {
+            @AuthenticationPrincipal UsuarioAutenticado usuario) {
 
-    Long alunoId = alunoService.buscarIdPorUsuario(usuario.id());
+        Long alunoId = alunoService.buscarIdPorUsuario(usuario.id());
 
-    return ResponseEntity.ok(
-            inscricaoService.listarPorAluno(alunoId)
-    );
+        return ResponseEntity.ok(
+                inscricaoService.listarPorAluno(alunoId)
+        );
     }
-
 }

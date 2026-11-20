@@ -1,4 +1,3 @@
-
 package br.edu.ucsal.campus.controller;
 
 import br.edu.ucsal.campus.dto.DTOEventoStatusResponse;
@@ -138,13 +137,18 @@ public class EventoController {
         );
     }
 
-    // Atualizar status do evento (Deve ser feito apenas pelo CAEX)
+    // Atualizar status do evento (somente CAEX e ADMIN)
     @PutMapping("/{id}/status")
     public ResponseEntity<DTOEventoStatusResponse> atualizarStatus(
             @PathVariable Long id,
-            @RequestBody DTOStatusRequest request) {
+            @RequestBody DTOStatusRequest request,
+            @AuthenticationPrincipal UsuarioAutenticado usuario) {
 
-        Evento atualizado = eventoService.atualizarStatus(id, request);
+        Evento atualizado = eventoService.atualizarStatus(
+                id,
+                request,
+                usuario
+        );
 
         return ResponseEntity.ok(
                 DTOEventoStatusResponse.de(atualizado)

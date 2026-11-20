@@ -283,9 +283,25 @@ public class EventoService {
             EnumSet.noneOf(Evento.StatusEvento.class)
     );
 
-    // Atualiza status do evento
+    // Atualiza status do evento (somente CAEX e ADMIN)
     @Transactional
-    public Evento atualizarStatus(Long id, DTOStatusRequest request) {
+    public Evento atualizarStatus(
+            Long id,
+            DTOStatusRequest request,
+            UsuarioAutenticado usuario) {
+
+        if (usuario == null) {
+            throw new ConflitoException("Usuário não autenticado");
+        }
+
+        // Valida o papel do usuário
+        if (usuario.papeis() == null
+                || (!usuario.papeis().contains(Papel.CAEX)
+                && !usuario.papeis().contains(Papel.ADMIN))) {
+
+            throw new ConflitoException(
+                    "Somente CAEX ou ADMIN podem atualizar o status do evento");
+        }
 
         if (request == null || request.status() == null) {
             throw new IllegalArgumentException("O status é obrigatório");
