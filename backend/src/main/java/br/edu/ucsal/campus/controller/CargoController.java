@@ -67,6 +67,18 @@ public class CargoController {
         return ResponseEntity.ok(DTOCargoResponse.de(cargo));
     }
 
+    // Exclui um cargo sem membros vinculados
+    @DeleteMapping("/{cargoId}")
+    public ResponseEntity<Void> excluir(
+            @PathVariable Long ligaId,
+            @PathVariable Long cargoId,
+            @AuthenticationPrincipal UsuarioAutenticado usuario) {
+
+        cargoService.excluir(ligaId, cargoId, usuario);
+
+        return ResponseEntity.noContent().build();
+    }
+
     // Atribui um cargo a um membro da liga
     @PutMapping("/{membroId}/membros/cargo/{cargoId}")
     public ResponseEntity<DTOMembroLigaResponse> atribuirCargo(

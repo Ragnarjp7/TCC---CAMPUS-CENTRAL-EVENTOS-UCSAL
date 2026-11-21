@@ -37,6 +37,7 @@ public class LigaService {
     private final AlunoRepository alunoRepository;
     private final CargoRepository cargoRepository;
     private final MembroLigaRepository membroLigaRepository;
+    private final AuditoriaService auditoriaService;
 
     public LigaService(
             LigaRepository ligaRepository,
@@ -44,7 +45,8 @@ public class LigaService {
             ProfessorRepository professorRepository,
             AlunoRepository alunoRepository,
             CargoRepository cargoRepository,
-            MembroLigaRepository membroLigaRepository) {
+            MembroLigaRepository membroLigaRepository,
+            AuditoriaService auditoriaService) {
 
         this.ligaRepository = ligaRepository;
         this.cursoRepository = cursoRepository;
@@ -52,16 +54,27 @@ public class LigaService {
         this.alunoRepository = alunoRepository;
         this.cargoRepository = cargoRepository;
         this.membroLigaRepository = membroLigaRepository;
+        this.auditoriaService = auditoriaService;
     }
 
     // Identifica o curso coordenado pelo usuário autenticado
     private Curso buscarCursoDoCoordenador(UsuarioAutenticado usuario) {
+
+        if (usuario == null) {
+            throw new IllegalArgumentException(
+                    "Usuário não autenticado");
+        }
 
         Professor coordenador = professorRepository
                 .findByUsuarioId(usuario.id())
                 .orElseThrow(() ->
                         new IllegalArgumentException(
                                 "Professor coordenador não encontrado"));
+
+        if (coordenador.getCurso() == null) {
+            throw new ConflitoException(
+                    "O professor não está vinculado a um curso");
+        }
 
         Curso curso = cursoRepository.findById(
                 coordenador.getCurso().getId()
@@ -77,6 +90,26 @@ public class LigaService {
         }
 
         return curso;
+    }
+
+    // Busca e valida um orientador pertencente ao curso da liga
+    private Professor buscarOrientadorDoCurso(
+            Long professorId,
+            Long cursoId) {
+
+        Professor orientador = professorRepository.findById(professorId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Orientador não encontrado"));
+
+        if (orientador.getCurso() == null
+                || !orientador.getCurso().getId().equals(cursoId)) {
+
+            throw new ConflitoException(
+                    "O orientador precisa estar vinculado ao mesmo curso da liga");
+        }
+
+        return orientador;
     }
 
     // Criar liga vinculada ao curso do coordenador
@@ -133,17 +166,97 @@ public class LigaService {
         liga.setStatus(StatusLiga.PENDENTE);
 
         if (request.orientadorId() != null) {
-            Professor orientador = professorRepository
-                    .findById(request.orientadorId())
-                    .orElseThrow(() ->
-                            new IllegalArgumentException(
-                                    "Orientador não encontrado"));
+            Professor orientador = buscarOrientadorDoCurso(
+                    request.orientadorId(),
+                    curso.getId());
 
             liga.setOrientador(orientador);
         }
 
-        return DTOLigaResponse.de(
-                ligaRepository.save(liga));
+        Liga ligaSalva = ligaRepository.save(liga);
+
+        auditoriaService.registrar(
+                usuario,
+                "CRIAR",
+                "LIGA",
+                ligaSalva.getId(),
+                null,
+                "status=" + StatusLiga.PENDENTE,
+                "Criação da liga " + ligaSalva.getNome()
+        );
+
+        return DTOLigaResponse.de(ligaSalva);
+    }
+
+    // RF22 - Atribui ou substitui o orientador de uma liga
+    @Transactional
+    public DTOLigaResponse atribuirOrientador(
+            Long ligaId,
+            Long professorId,
+            UsuarioAutenticado usuario) {
+
+        Curso curso = buscarCursoDoCoordenador(usuario);
+
+        Liga liga = buscarLigaDoCurso(ligaId, curso.getId());
+
+        Professor orientador = buscarOrientadorDoCurso(
+                professorId,
+                curso.getId());
+
+        Long orientadorAnteriorId = liga.getOrientador() != null
+                ? liga.getOrientador().getId()
+                : null;
+
+        liga.setOrientador(orientador);
+
+        Liga ligaSalva = ligaRepository.save(liga);
+
+        auditoriaService.registrar(
+                usuario,
+                "ATRIBUIR_ORIENTADOR",
+                "LIGA",
+                ligaSalva.getId(),
+                "orientadorId=" + orientadorAnteriorId,
+                "orientadorId=" + orientador.getId(),
+                "Atribuição ou substituição do orientador da liga "
+                        + ligaSalva.getNome()
+        );
+
+        return DTOLigaResponse.de(ligaSalva);
+    }
+
+    // RF22 - Remove o orientador de uma liga
+    @Transactional
+    public DTOLigaResponse removerOrientador(
+            Long ligaId,
+            UsuarioAutenticado usuario) {
+
+        Curso curso = buscarCursoDoCoordenador(usuario);
+
+        Liga liga = buscarLigaDoCurso(ligaId, curso.getId());
+
+        if (liga.getOrientador() == null) {
+            throw new ConflitoException(
+                    "Esta liga não possui um orientador atribuído");
+        }
+
+        Long orientadorAnteriorId = liga.getOrientador().getId();
+
+        liga.setOrientador(null);
+
+        Liga ligaSalva = ligaRepository.save(liga);
+
+        auditoriaService.registrar(
+                usuario,
+                "REMOVER_ORIENTADOR",
+                "LIGA",
+                ligaSalva.getId(),
+                "orientadorId=" + orientadorAnteriorId,
+                null,
+                "Remoção do orientador da liga " + ligaSalva.getNome()
+        );
+
+        return DTOLigaResponse.de(ligaSalva);
     }
 
     // Listar ligas aprovadas publicamente
@@ -236,7 +349,19 @@ public class LigaService {
         // Aprova a liga após criar seu primeiro responsável
         liga.setStatus(StatusLiga.APROVADA);
 
-        return DTOLigaResponse.de(ligaRepository.save(liga));
+        Liga ligaSalva = ligaRepository.save(liga);
+
+        auditoriaService.registrar(
+                usuario,
+                "APROVAR",
+                "LIGA",
+                ligaSalva.getId(),
+                "status=" + StatusLiga.PENDENTE,
+                "status=" + StatusLiga.APROVADA,
+                "Aprovação da liga " + ligaSalva.getNome()
+        );
+
+        return DTOLigaResponse.de(ligaSalva);
     }
 
     // Rejeitar liga do próprio curso
@@ -256,7 +381,19 @@ public class LigaService {
 
         liga.setStatus(StatusLiga.REJEITADA);
 
-        return DTOLigaResponse.de(ligaRepository.save(liga));
+        Liga ligaSalva = ligaRepository.save(liga);
+
+        auditoriaService.registrar(
+                usuario,
+                "REJEITAR",
+                "LIGA",
+                ligaSalva.getId(),
+                "status=" + StatusLiga.PENDENTE,
+                "status=" + StatusLiga.REJEITADA,
+                "Rejeição da liga " + ligaSalva.getNome()
+        );
+
+        return DTOLigaResponse.de(ligaSalva);
     }
 
     private Liga buscarLigaDoCurso(Long id, Long cursoId) {

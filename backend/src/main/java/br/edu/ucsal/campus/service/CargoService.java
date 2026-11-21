@@ -12,11 +12,12 @@ import br.edu.ucsal.campus.repository.LigaRepository;
 import br.edu.ucsal.campus.repository.MembroLigaRepository;
 import br.edu.ucsal.campus.security.UsuarioAutenticado;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Service
@@ -36,7 +37,7 @@ public class CargoService {
         this.membroLigaRepository = membroLigaRepository;
     }
 
-    // Cria um novo cargo na liga
+    // RF23 - Cria um novo cargo na liga
     @Transactional
     public Cargo criar(
             Long ligaId,
@@ -47,7 +48,8 @@ public class CargoService {
         validarRequest(request);
 
         Liga liga = ligaRepository.findById(ligaId)
-                .orElseThrow(() -> new IllegalArgumentException("Liga não encontrada"));
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Liga não encontrada"));
 
         if (cargoRepository.existsByLigaIdAndNomeIgnoreCase(
                 ligaId, request.nome().trim())) {
@@ -59,6 +61,7 @@ public class CargoService {
         Cargo cargo = new Cargo();
         cargo.setNome(request.nome().trim());
         cargo.setLiga(liga);
+
         cargo.setPermissoes(
                 request.permissoes() == null
                         ? new HashSet<>()
@@ -67,7 +70,7 @@ public class CargoService {
         return cargoRepository.save(cargo);
     }
 
-    // Edita um cargo existente
+    // RF23 - Edita um cargo existente
     @Transactional
     public Cargo atualizar(
             Long ligaId,
@@ -79,7 +82,8 @@ public class CargoService {
         validarRequest(request);
 
         Cargo cargo = cargoRepository.findById(cargoId)
-                .orElseThrow(() -> new IllegalArgumentException("Cargo não encontrado"));
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Cargo não encontrado"));
 
         if (!cargo.getLiga().getId().equals(ligaId)) {
             throw new ConflitoException(
@@ -97,18 +101,21 @@ public class CargoService {
                 ? new HashSet<>()
                 : new HashSet<>(request.permissoes());
 
-        if (cargo.getPermissoes().contains(Permissao.GERENCIAR_CARGOS)
-                && !novasPermissoes.contains(Permissao.GERENCIAR_CARGOS)) {
+        boolean removendoGerenciamento =
+                cargo.getPermissoes().contains(Permissao.GERENCIAR_CARGOS)
+                && !novasPermissoes.contains(Permissao.GERENCIAR_CARGOS);
 
-            long membrosNoCargo = membroLigaRepository
-                    .contarMembrosAtivosComPermissaoNoCargo(
+        if (removendoGerenciamento) {
+
+            long membrosNoCargo =
+                    membroLigaRepository.contarMembrosAtivosComPermissaoNoCargo(
                             ligaId,
                             cargoId,
                             StatusMembro.ATIVO,
                             Permissao.GERENCIAR_CARGOS);
 
-            long responsaveisNaLiga = membroLigaRepository
-                    .contarMembrosAtivosComPermissao(
+            long responsaveisNaLiga =
+                    membroLigaRepository.contarMembrosAtivosComPermissao(
                             ligaId,
                             StatusMembro.ATIVO,
                             Permissao.GERENCIAR_CARGOS);
@@ -125,6 +132,32 @@ public class CargoService {
         return cargoRepository.save(cargo);
     }
 
+    // RF23 - Exclui um cargo sem vínculos com membros
+    @Transactional
+    public void excluir(
+            Long ligaId,
+            Long cargoId,
+            UsuarioAutenticado usuario) {
+
+        validarPermissaoGerenciarCargos(ligaId, usuario);
+
+        Cargo cargo = cargoRepository.findById(cargoId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Cargo não encontrado"));
+
+        if (!cargo.getLiga().getId().equals(ligaId)) {
+            throw new ConflitoException(
+                    "Este cargo não pertence à liga informada");
+        }
+
+        if (membroLigaRepository.existsByCargoId(cargoId)) {
+            throw new ConflitoException(
+                    "Não é possível excluir este cargo, pois existem membros vinculados a ele. Remova os vínculos antes de tentar novamente");
+        }
+
+        cargoRepository.delete(cargo);
+    }
+
     // Lista os cargos de uma liga
     @Transactional(readOnly = true)
     public List<Cargo> listar(Long ligaId) {
@@ -134,6 +167,66 @@ public class CargoService {
         }
 
         return cargoRepository.findByLigaId(ligaId);
+    }
+
+    // RF23 - Atribui um cargo a um membro ativo
+    @Transactional
+    public MembroLiga atribuirCargo(
+            Long ligaId,
+            Long membroId,
+            Long cargoId,
+            UsuarioAutenticado usuario) {
+
+        validarPermissaoGerenciarCargos(ligaId, usuario);
+
+        MembroLiga membro = membroLigaRepository.findById(membroId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Membro não encontrado"));
+
+        if (!membro.getLiga().getId().equals(ligaId)) {
+            throw new ConflitoException(
+                    "Este membro não pertence à liga informada");
+        }
+
+        if (membro.getStatus() != StatusMembro.ATIVO) {
+            throw new ConflitoException(
+                    "Somente membros ativos podem receber cargos");
+        }
+
+        Cargo cargo = cargoRepository.findById(cargoId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Cargo não encontrado"));
+
+        if (!cargo.getLiga().getId().equals(ligaId)) {
+            throw new ConflitoException(
+                    "Este cargo não pertence à liga informada");
+        }
+
+        boolean possuiPermissaoAtual = membro.getCargo() != null
+                && membro.getCargo().getPermissoes()
+                        .contains(Permissao.GERENCIAR_CARGOS);
+
+        boolean novoCargoPossuiPermissao = cargo.getPermissoes()
+                .contains(Permissao.GERENCIAR_CARGOS);
+
+        if (possuiPermissaoAtual && !novoCargoPossuiPermissao) {
+
+            long responsaveisNaLiga =
+                    membroLigaRepository.contarMembrosAtivosComPermissao(
+                            ligaId,
+                            StatusMembro.ATIVO,
+                            Permissao.GERENCIAR_CARGOS);
+
+            if (responsaveisNaLiga <= 1) {
+                throw new ConflitoException(
+                        "Não é possível atribuir este cargo, pois a liga ficaria sem responsável pelo gerenciamento de cargos");
+            }
+        }
+
+        // setCargo também atualiza o tipo para OCUPANTE_CARGO
+        membro.setCargo(cargo);
+
+        return membroLigaRepository.save(membro);
     }
 
     // Valida os dados enviados
@@ -161,79 +254,23 @@ public class CargoService {
             UsuarioAutenticado usuario) {
 
         if (usuario == null) {
-            throw new ConflitoException("Usuário não autenticado");
+            throw new AccessDeniedException("Usuário não autenticado");
         }
 
         MembroLiga membro = membroLigaRepository.buscarMembroAtivo(
                 usuario.id(),
                 ligaId,
-                StatusMembro.ATIVO).orElseThrow(
-                        () -> new ConflitoException(
+                StatusMembro.ATIVO)
+                .orElseThrow(() ->
+                        new AccessDeniedException(
                                 "Você não é membro ativo desta liga"));
 
         if (membro.getCargo() == null
                 || !membro.getCargo().getPermissoes()
                         .contains(Permissao.GERENCIAR_CARGOS)) {
 
-            throw new ConflitoException(
+            throw new AccessDeniedException(
                     "Seu cargo não possui permissão para gerenciar cargos");
         }
-    }
-
-    // Atribui um cargo a um membro da liga
-    @Transactional
-    public MembroLiga atribuirCargo(
-            Long ligaId,
-            Long membroId,
-            Long cargoId,
-            UsuarioAutenticado usuario) {
-
-        validarPermissaoGerenciarCargos(ligaId, usuario);
-
-        MembroLiga membro = membroLigaRepository.findById(membroId)
-                .orElseThrow(() -> new IllegalArgumentException("Membro não encontrado"));
-
-        if (!membro.getLiga().getId().equals(ligaId)) {
-            throw new ConflitoException(
-                    "Este membro não pertence à liga informada");
-        }
-
-        if (membro.getStatus() != StatusMembro.ATIVO) {
-            throw new ConflitoException(
-                    "Somente membros ativos podem receber cargos");
-        }
-
-        Cargo cargo = cargoRepository.findById(cargoId)
-                .orElseThrow(() -> new IllegalArgumentException("Cargo não encontrado"));
-
-        if (!cargo.getLiga().getId().equals(ligaId)) {
-            throw new ConflitoException(
-                    "Este cargo não pertence à liga informada");
-        }
-
-        boolean possuiPermissaoAtual = membro.getCargo() != null
-                && membro.getCargo().getPermissoes()
-                        .contains(Permissao.GERENCIAR_CARGOS);
-
-        boolean novoCargoPossuiPermissao = cargo.getPermissoes()
-                .contains(Permissao.GERENCIAR_CARGOS);
-
-        if (possuiPermissaoAtual && !novoCargoPossuiPermissao) {
-
-            long responsaveisNaLiga = membroLigaRepository
-                    .contarMembrosAtivosComPermissao(
-                            ligaId,
-                            StatusMembro.ATIVO,
-                            Permissao.GERENCIAR_CARGOS);
-
-            if (responsaveisNaLiga <= 1) {
-                throw new ConflitoException(
-                        "Não é possível atribuir este cargo, pois a liga ficaria sem responsável pelo gerenciamento de cargos");
-            }
-        }
-
-        membro.setCargo(cargo);
-
-        return membroLigaRepository.save(membro);
     }
 }

@@ -6,14 +6,17 @@ import br.edu.ucsal.campus.model.MembroLiga;
 import br.edu.ucsal.campus.model.enums.StatusLiga;
 import br.edu.ucsal.campus.model.enums.StatusMembro;
 import br.edu.ucsal.campus.model.enums.Permissao;
+import br.edu.ucsal.campus.model.enums.TipoMembroLiga;
 import br.edu.ucsal.campus.exception.ConflitoException;
 import br.edu.ucsal.campus.repository.AlunoRepository;
 import br.edu.ucsal.campus.repository.LigaRepository;
 import br.edu.ucsal.campus.repository.MembroLigaRepository;
 import br.edu.ucsal.campus.security.UsuarioAutenticado;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.util.List;
 
 @Service
@@ -33,13 +36,14 @@ public class MembroLigaService {
         this.ligaRepository = ligaRepository;
     }
 
+    // RF19 - Solicita participação em uma liga
     @Transactional
     public MembroLiga solicitarParticipacao(
             Long ligaId,
             UsuarioAutenticado usuario) {
 
         if (usuario == null) {
-            throw new ConflitoException("Usuário não autenticado");
+            throw new AccessDeniedException("Usuário não autenticado");
         }
 
         if (ligaId == null) {
@@ -53,7 +57,8 @@ public class MembroLigaService {
 
         // Busca a liga
         Liga liga = ligaRepository.findById(ligaId)
-                .orElseThrow(() -> new IllegalArgumentException("Liga não encontrada"));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Liga não encontrada"));
 
         // Somente ligas aprovadas podem receber solicitações
         if (liga.getStatus() != StatusLiga.APROVADA) {
@@ -72,8 +77,9 @@ public class MembroLigaService {
             if (membro.getStatus() == StatusMembro.RECUSADO
                     || membro.getStatus() == StatusMembro.INATIVO) {
 
-                membro.setStatus(StatusMembro.SOLICITADO);
                 membro.setCargo(null);
+                membro.setTipoMembro(TipoMembroLiga.LIGANTE_PADRAO);
+                membro.setStatus(StatusMembro.SOLICITADO);
 
                 return membroLigaRepository.save(membro);
             }
@@ -86,6 +92,8 @@ public class MembroLigaService {
         MembroLiga membro = new MembroLiga();
         membro.setAluno(aluno);
         membro.setLiga(liga);
+        membro.setCargo(null);
+        membro.setTipoMembro(TipoMembroLiga.LIGANTE_PADRAO);
         membro.setStatus(StatusMembro.SOLICITADO);
 
         return membroLigaRepository.save(membro);
@@ -104,7 +112,7 @@ public class MembroLigaService {
                 StatusMembro.SOLICITADO);
     }
 
-    // Aprova a solicitação de participação
+    // RF20 - Aprova a solicitação de participação
     @Transactional
     public MembroLiga aprovarSolicitacao(
             Long ligaId,
@@ -114,7 +122,8 @@ public class MembroLigaService {
         validarPermissaoGerenciarMembros(ligaId, usuario);
 
         MembroLiga membro = membroLigaRepository.findById(membroId)
-                .orElseThrow(() -> new IllegalArgumentException("Solicitação não encontrada"));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Solicitação não encontrada"));
 
         if (!membro.getLiga().getId().equals(ligaId)) {
             throw new ConflitoException(
@@ -126,6 +135,9 @@ public class MembroLigaService {
                     "Esta solicitação não está pendente");
         }
 
+        // A aprovação inicial ativa o aluno como ligante padrão
+        membro.setCargo(null);
+        membro.setTipoMembro(TipoMembroLiga.LIGANTE_PADRAO);
         membro.setStatus(StatusMembro.ATIVO);
 
         return membroLigaRepository.save(membro);
@@ -141,7 +153,8 @@ public class MembroLigaService {
         validarPermissaoGerenciarMembros(ligaId, usuario);
 
         MembroLiga membro = membroLigaRepository.findById(membroId)
-                .orElseThrow(() -> new IllegalArgumentException("Solicitação não encontrada"));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Solicitação não encontrada"));
 
         if (!membro.getLiga().getId().equals(ligaId)) {
             throw new ConflitoException(
@@ -168,7 +181,8 @@ public class MembroLigaService {
         validarPermissaoGerenciarMembros(ligaId, usuario);
 
         MembroLiga membro = membroLigaRepository.findById(membroId)
-                .orElseThrow(() -> new IllegalArgumentException("Membro não encontrado"));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Membro não encontrado"));
 
         if (!membro.getLiga().getId().equals(ligaId)) {
             throw new ConflitoException(
@@ -180,6 +194,7 @@ public class MembroLigaService {
                     "Somente membros ativos podem ser desativados");
         }
 
+        // Impede a desativação do último responsável pelo gerenciamento
         if (membro.getCargo() != null
                 && membro.getCargo().getPermissoes()
                         .contains(Permissao.GERENCIAR_CARGOS)) {
@@ -206,21 +221,21 @@ public class MembroLigaService {
             UsuarioAutenticado usuario) {
 
         if (usuario == null) {
-            throw new ConflitoException("Usuário não autenticado");
+            throw new AccessDeniedException("Usuário não autenticado");
         }
 
         MembroLiga responsavel = membroLigaRepository.buscarMembroAtivo(
                 usuario.id(),
                 ligaId,
                 StatusMembro.ATIVO).orElseThrow(
-                        () -> new ConflitoException(
+                        () -> new AccessDeniedException(
                                 "Você não é membro ativo desta liga"));
 
         if (responsavel.getCargo() == null
                 || !responsavel.getCargo().getPermissoes()
                         .contains(Permissao.GERENCIAR_MEMBROS)) {
 
-            throw new ConflitoException(
+            throw new AccessDeniedException(
                     "Seu cargo não possui permissão para gerenciar membros");
         }
     }

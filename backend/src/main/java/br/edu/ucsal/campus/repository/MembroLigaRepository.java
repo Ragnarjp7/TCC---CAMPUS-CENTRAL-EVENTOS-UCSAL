@@ -44,6 +44,9 @@ public interface MembroLigaRepository extends JpaRepository<MembroLiga, Long> {
             @Param("ligaId") Long ligaId,
             @Param("status") StatusMembro status);
 
+    // Verifica se existe algum vínculo histórico com o cargo
+    boolean existsByCargoId(Long cargoId);
+
     // Conta membros ativos que possuem determinada permissão na liga
     @Query("""
             SELECT COUNT(m)

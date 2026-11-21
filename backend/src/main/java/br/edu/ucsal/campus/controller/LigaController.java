@@ -64,4 +64,26 @@ public class LigaController {
         return ResponseEntity.ok(
                 ligaService.rejeitar(id, usuario));
     }
+
+    // RF22 - Atribui ou substitui o orientador da liga
+    @PutMapping("/{id}/orientador/{professorId}")
+    public ResponseEntity<DTOLigaResponse> atribuirOrientador(
+            @PathVariable Long id,
+            @PathVariable Long professorId,
+            @AuthenticationPrincipal UsuarioAutenticado usuario) {
+
+        return ResponseEntity.ok(
+                ligaService.atribuirOrientador(
+                        id, professorId, usuario));
+    }
+
+    // RF22 - Remove o orientador da liga
+    @DeleteMapping("/{id}/orientador")
+    public ResponseEntity<DTOLigaResponse> removerOrientador(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UsuarioAutenticado usuario) {
+
+        return ResponseEntity.ok(
+                ligaService.removerOrientador(id, usuario));
+    }
 }
