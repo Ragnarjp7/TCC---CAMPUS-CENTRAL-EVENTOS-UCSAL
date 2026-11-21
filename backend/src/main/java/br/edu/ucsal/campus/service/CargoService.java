@@ -26,15 +26,18 @@ public class CargoService {
     private final CargoRepository cargoRepository;
     private final LigaRepository ligaRepository;
     private final MembroLigaRepository membroLigaRepository;
+    private final AuditoriaService auditoriaService;
 
     public CargoService(
             CargoRepository cargoRepository,
             LigaRepository ligaRepository,
-            MembroLigaRepository membroLigaRepository) {
+            MembroLigaRepository membroLigaRepository,
+            AuditoriaService auditoriaService) {
 
         this.cargoRepository = cargoRepository;
         this.ligaRepository = ligaRepository;
         this.membroLigaRepository = membroLigaRepository;
+        this.auditoriaService = auditoriaService;
     }
 
     // RF23 - Cria um novo cargo na liga
@@ -67,7 +70,20 @@ public class CargoService {
                         ? new HashSet<>()
                         : new HashSet<>(request.permissoes()));
 
-        return cargoRepository.save(cargo);
+        Cargo cargoSalvo = cargoRepository.save(cargo);
+
+        auditoriaService.registrar(
+                usuario,
+                "CRIAR_CARGO",
+                "CARGO",
+                cargoSalvo.getId(),
+                null,
+                "nome=" + cargoSalvo.getNome()
+                        + "; permissoes=" + cargoSalvo.getPermissoes(),
+                "Criação do cargo na liga " + liga.getNome()
+        );
+
+        return cargoSalvo;
     }
 
     // RF23 - Edita um cargo existente
@@ -96,6 +112,10 @@ public class CargoService {
             throw new ConflitoException(
                     "Já existe outro cargo com esse nome nesta liga");
         }
+
+        String valoresAnteriores =
+                "nome=" + cargo.getNome()
+                + "; permissoes=" + cargo.getPermissoes();
 
         Set<Permissao> novasPermissoes = request.permissoes() == null
                 ? new HashSet<>()
@@ -129,7 +149,21 @@ public class CargoService {
         cargo.setNome(request.nome().trim());
         cargo.setPermissoes(novasPermissoes);
 
-        return cargoRepository.save(cargo);
+        Cargo cargoSalvo = cargoRepository.save(cargo);
+
+        auditoriaService.registrar(
+                usuario,
+                "ATUALIZAR_CARGO",
+                "CARGO",
+                cargoSalvo.getId(),
+                valoresAnteriores,
+                "nome=" + cargoSalvo.getNome()
+                        + "; permissoes=" + cargoSalvo.getPermissoes(),
+                "Atualização do cargo na liga "
+                        + cargoSalvo.getLiga().getNome()
+        );
+
+        return cargoSalvo;
     }
 
     // RF23 - Exclui um cargo sem vínculos com membros
@@ -155,7 +189,20 @@ public class CargoService {
                     "Não é possível excluir este cargo, pois existem membros vinculados a ele. Remova os vínculos antes de tentar novamente");
         }
 
+        String nomeCargo = cargo.getNome();
+        String nomeLiga = cargo.getLiga().getNome();
+
         cargoRepository.delete(cargo);
+
+        auditoriaService.registrar(
+                usuario,
+                "EXCLUIR_CARGO",
+                "CARGO",
+                cargoId,
+                "nome=" + nomeCargo,
+                null,
+                "Exclusão do cargo da liga " + nomeLiga
+        );
     }
 
     // Lista os cargos de uma liga
@@ -223,10 +270,32 @@ public class CargoService {
             }
         }
 
-        // setCargo também atualiza o tipo para OCUPANTE_CARGO
+        String cargoAnterior = membro.getCargo() != null
+                ? membro.getCargo().getNome()
+                : null;
+
+        Long cargoAnteriorId = membro.getCargo() != null
+                ? membro.getCargo().getId()
+                : null;
+
         membro.setCargo(cargo);
 
-        return membroLigaRepository.save(membro);
+        MembroLiga membroSalvo = membroLigaRepository.save(membro);
+
+        auditoriaService.registrar(
+                usuario,
+                "ATRIBUIR_CARGO",
+                "MEMBRO_LIGA",
+                membroSalvo.getId(),
+                "cargoId=" + cargoAnteriorId
+                        + "; cargoNome=" + cargoAnterior,
+                "cargoId=" + cargo.getId()
+                        + "; cargoNome=" + cargo.getNome(),
+                "Alteração de cargo de membro da liga "
+                        + membro.getLiga().getNome()
+        );
+
+        return membroSalvo;
     }
 
     // Valida os dados enviados

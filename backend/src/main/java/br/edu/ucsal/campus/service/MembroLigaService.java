@@ -25,15 +25,18 @@ public class MembroLigaService {
     private final MembroLigaRepository membroLigaRepository;
     private final AlunoRepository alunoRepository;
     private final LigaRepository ligaRepository;
+    private final AuditoriaService auditoriaService;
 
     public MembroLigaService(
             MembroLigaRepository membroLigaRepository,
             AlunoRepository alunoRepository,
-            LigaRepository ligaRepository) {
+            LigaRepository ligaRepository,
+            AuditoriaService auditoriaService) {
 
         this.membroLigaRepository = membroLigaRepository;
         this.alunoRepository = alunoRepository;
         this.ligaRepository = ligaRepository;
+        this.auditoriaService = auditoriaService;
     }
 
     // RF19 - Solicita participação em uma liga
@@ -50,45 +53,54 @@ public class MembroLigaService {
             throw new IllegalArgumentException("A liga é obrigatória");
         }
 
-        // Busca o aluno associado ao usuário autenticado
         Aluno aluno = alunoRepository.findByUsuarioId(usuario.id())
                 .orElseThrow(() -> new ConflitoException(
                         "Não existe um cadastro de aluno associado a este usuário"));
 
-        // Busca a liga
         Liga liga = ligaRepository.findById(ligaId)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Liga não encontrada"));
 
-        // Somente ligas aprovadas podem receber solicitações
         if (liga.getStatus() != StatusLiga.APROVADA) {
             throw new ConflitoException(
                     "Não é possível solicitar participação em uma liga que não está aprovada");
         }
 
-        // Impede solicitações ou vínculos duplicados
         var vinculoExistente = membroLigaRepository
                 .findByAlunoIdAndLigaId(aluno.getId(), liga.getId());
 
         if (vinculoExistente.isPresent()) {
 
             MembroLiga membro = vinculoExistente.get();
+            StatusMembro statusAnterior = membro.getStatus();
 
-            if (membro.getStatus() == StatusMembro.RECUSADO
-                    || membro.getStatus() == StatusMembro.INATIVO) {
+            if (statusAnterior == StatusMembro.RECUSADO
+                    || statusAnterior == StatusMembro.INATIVO) {
 
                 membro.setCargo(null);
                 membro.setTipoMembro(TipoMembroLiga.LIGANTE_PADRAO);
                 membro.setStatus(StatusMembro.SOLICITADO);
 
-                return membroLigaRepository.save(membro);
+                MembroLiga membroSalvo = membroLigaRepository.save(membro);
+
+                auditoriaService.registrar(
+                        usuario,
+                        "REATIVAR_SOLICITACAO",
+                        "MEMBRO_LIGA",
+                        membroSalvo.getId(),
+                        "status=" + statusAnterior,
+                        "status=" + StatusMembro.SOLICITADO,
+                        "Reenvio de solicitação de participação na liga "
+                                + liga.getNome()
+                );
+
+                return membroSalvo;
             }
 
             throw new ConflitoException(
                     "Você já possui uma solicitação ou vínculo com esta liga");
         }
 
-        // Cria a solicitação
         MembroLiga membro = new MembroLiga();
         membro.setAluno(aluno);
         membro.setLiga(liga);
@@ -96,7 +108,19 @@ public class MembroLigaService {
         membro.setTipoMembro(TipoMembroLiga.LIGANTE_PADRAO);
         membro.setStatus(StatusMembro.SOLICITADO);
 
-        return membroLigaRepository.save(membro);
+        MembroLiga membroSalvo = membroLigaRepository.save(membro);
+
+        auditoriaService.registrar(
+                usuario,
+                "SOLICITAR_PARTICIPACAO",
+                "MEMBRO_LIGA",
+                membroSalvo.getId(),
+                null,
+                "status=" + StatusMembro.SOLICITADO,
+                "Solicitação de participação na liga " + liga.getNome()
+        );
+
+        return membroSalvo;
     }
 
     // Lista solicitações pendentes de uma liga
@@ -135,12 +159,25 @@ public class MembroLigaService {
                     "Esta solicitação não está pendente");
         }
 
-        // A aprovação inicial ativa o aluno como ligante padrão
         membro.setCargo(null);
         membro.setTipoMembro(TipoMembroLiga.LIGANTE_PADRAO);
         membro.setStatus(StatusMembro.ATIVO);
 
-        return membroLigaRepository.save(membro);
+        MembroLiga membroSalvo = membroLigaRepository.save(membro);
+
+        auditoriaService.registrar(
+                usuario,
+                "APROVAR_SOLICITACAO",
+                "MEMBRO_LIGA",
+                membroSalvo.getId(),
+                "status=" + StatusMembro.SOLICITADO,
+                "status=" + StatusMembro.ATIVO
+                        + "; tipo=" + TipoMembroLiga.LIGANTE_PADRAO,
+                "Aprovação da participação do aluno na liga "
+                        + membro.getLiga().getNome()
+        );
+
+        return membroSalvo;
     }
 
     // Recusa a solicitação de participação
@@ -168,7 +205,20 @@ public class MembroLigaService {
 
         membro.setStatus(StatusMembro.RECUSADO);
 
-        return membroLigaRepository.save(membro);
+        MembroLiga membroSalvo = membroLigaRepository.save(membro);
+
+        auditoriaService.registrar(
+                usuario,
+                "RECUSAR_SOLICITACAO",
+                "MEMBRO_LIGA",
+                membroSalvo.getId(),
+                "status=" + StatusMembro.SOLICITADO,
+                "status=" + StatusMembro.RECUSADO,
+                "Recusa da solicitação de participação na liga "
+                        + membro.getLiga().getNome()
+        );
+
+        return membroSalvo;
     }
 
     // Desativa um membro da liga
@@ -194,7 +244,6 @@ public class MembroLigaService {
                     "Somente membros ativos podem ser desativados");
         }
 
-        // Impede a desativação do último responsável pelo gerenciamento
         if (membro.getCargo() != null
                 && membro.getCargo().getPermissoes()
                         .contains(Permissao.GERENCIAR_CARGOS)) {
@@ -212,7 +261,20 @@ public class MembroLigaService {
 
         membro.setStatus(StatusMembro.INATIVO);
 
-        return membroLigaRepository.save(membro);
+        MembroLiga membroSalvo = membroLigaRepository.save(membro);
+
+        auditoriaService.registrar(
+                usuario,
+                "DESATIVAR_MEMBRO",
+                "MEMBRO_LIGA",
+                membroSalvo.getId(),
+                "status=" + StatusMembro.ATIVO,
+                "status=" + StatusMembro.INATIVO,
+                "Desativação de membro da liga "
+                        + membro.getLiga().getNome()
+        );
+
+        return membroSalvo;
     }
 
     // Verifica se o usuário pode gerenciar os membros da liga

@@ -4,6 +4,7 @@ import br.edu.ucsal.campus.dto.DTOAlunoRequest;
 import br.edu.ucsal.campus.dto.DTOAlunoResponse;
 import br.edu.ucsal.campus.dto.DTOInscricaoResponse;
 import br.edu.ucsal.campus.model.enums.Papel;
+import br.edu.ucsal.campus.model.enums.SituacaoAcademica;
 import br.edu.ucsal.campus.security.UsuarioAutenticado;
 import br.edu.ucsal.campus.service.AlunoService;
 import br.edu.ucsal.campus.service.InscricaoService;
@@ -49,6 +50,22 @@ public class AlunoController {
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(alunoService.criar(aluno));
+    }
+
+    // Atualiza a situação acadêmica de um aluno (CAEX ou ADMIN)
+    @PatchMapping("/{id}/situacao-academica")
+    public ResponseEntity<DTOAlunoResponse> atualizarSituacaoAcademica(
+            @PathVariable Long id,
+            @RequestBody SituacaoAcademica novaSituacao,
+            @AuthenticationPrincipal UsuarioAutenticado usuario) {
+
+        return ResponseEntity.ok(
+                alunoService.atualizarSituacaoAcademica(
+                        id,
+                        novaSituacao,
+                        usuario
+                )
+        );
     }
 
     // Consulta inscrições de outro aluno (somente CAEX ou ADMIN)
