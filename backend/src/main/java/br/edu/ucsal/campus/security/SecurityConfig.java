@@ -55,7 +55,8 @@ public class SecurityConfig {
                 .requestMatchers("/error").permitAll()
 
                 // Solicitação de participação em liga
-                .requestMatchers(HttpMethod.POST, "/ligas/*/solicitar-participacao").hasRole("ALUNO")
+                .requestMatchers(HttpMethod.POST, "/ligas/*/solicitar-participacao")
+                    .hasRole("ALUNO")
 
                 // Rotas públicas
                 .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
@@ -94,7 +95,34 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/ligas/publicas").permitAll()
                 .requestMatchers(HttpMethod.POST, "/ligas").hasRole("COORDENADOR")
                 .requestMatchers(HttpMethod.GET, "/ligas/pendentes").hasRole("COORDENADOR")
-                .requestMatchers(HttpMethod.PUT, "/ligas/*/aprovar", "/ligas/*/rejeitar").hasRole("COORDENADOR")
+                .requestMatchers(HttpMethod.PUT, "/ligas/*/aprovar", "/ligas/*/rejeitar")
+                    .hasRole("COORDENADOR")
+
+                // RF46 - Solicitações de ajustes das ligas
+                .requestMatchers(
+                        HttpMethod.POST,
+                        "/solicitacoes-ajustes-liga/liga/*"
+                ).hasAnyRole("CAEX", "ADMIN")
+
+                .requestMatchers(
+                        HttpMethod.PUT,
+                        "/solicitacoes-ajustes-liga/*/concluir"
+                ).hasAnyRole("CAEX", "ADMIN")
+
+                .requestMatchers(
+                        HttpMethod.GET,
+                        "/solicitacoes-ajustes-liga/aguardando-analise"
+                ).hasAnyRole("CAEX", "ADMIN")
+
+                .requestMatchers(
+                        HttpMethod.PUT,
+                        "/solicitacoes-ajustes-liga/*/responder"
+                ).authenticated()
+
+                .requestMatchers(
+                        HttpMethod.GET,
+                        "/solicitacoes-ajustes-liga/liga/*"
+                ).authenticated()
 
                 // Gerenciamento de membros das ligas
                 .requestMatchers(HttpMethod.GET, "/ligas/*/solicitacoes").authenticated()

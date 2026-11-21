@@ -11,6 +11,7 @@ import br.edu.ucsal.campus.model.MembroLiga;
 import br.edu.ucsal.campus.model.Professor;
 import br.edu.ucsal.campus.model.enums.Permissao;
 import br.edu.ucsal.campus.model.enums.SituacaoAcademica;
+import br.edu.ucsal.campus.model.enums.StatusAjusteLiga;
 import br.edu.ucsal.campus.model.enums.StatusLiga;
 import br.edu.ucsal.campus.model.enums.StatusMembro;
 import br.edu.ucsal.campus.repository.AlunoRepository;
@@ -19,6 +20,7 @@ import br.edu.ucsal.campus.repository.CursoRepository;
 import br.edu.ucsal.campus.repository.LigaRepository;
 import br.edu.ucsal.campus.repository.MembroLigaRepository;
 import br.edu.ucsal.campus.repository.ProfessorRepository;
+import br.edu.ucsal.campus.repository.SolicitacaoAjusteLigaRepository;
 import br.edu.ucsal.campus.security.UsuarioAutenticado;
 
 import org.springframework.stereotype.Service;
@@ -38,6 +40,7 @@ public class LigaService {
     private final CargoRepository cargoRepository;
     private final MembroLigaRepository membroLigaRepository;
     private final AuditoriaService auditoriaService;
+    private final SolicitacaoAjusteLigaRepository solicitacaoAjusteLigaRepository;
 
     public LigaService(
             LigaRepository ligaRepository,
@@ -46,7 +49,8 @@ public class LigaService {
             AlunoRepository alunoRepository,
             CargoRepository cargoRepository,
             MembroLigaRepository membroLigaRepository,
-            AuditoriaService auditoriaService) {
+            AuditoriaService auditoriaService,
+            SolicitacaoAjusteLigaRepository solicitacaoAjusteLigaRepository) {
 
         this.ligaRepository = ligaRepository;
         this.cursoRepository = cursoRepository;
@@ -55,6 +59,7 @@ public class LigaService {
         this.cargoRepository = cargoRepository;
         this.membroLigaRepository = membroLigaRepository;
         this.auditoriaService = auditoriaService;
+        this.solicitacaoAjusteLigaRepository = solicitacaoAjusteLigaRepository;
     }
 
     // Identifica o curso coordenado pelo usuário autenticado
@@ -297,6 +302,17 @@ public class LigaService {
         if (liga.getStatus() != StatusLiga.PENDENTE) {
             throw new IllegalArgumentException(
                     "Somente ligas pendentes podem ser aprovadas");
+        }
+
+        boolean possuiAjustesNaoConcluidos =
+                solicitacaoAjusteLigaRepository.existsByLigaIdAndStatusNot(
+                        liga.getId(),
+                        StatusAjusteLiga.CONCLUIDA
+                );
+
+        if (possuiAjustesNaoConcluidos) {
+            throw new ConflitoException(
+                    "A liga possui solicitações de ajustes do CAEX que ainda precisam ser concluídas");
         }
 
         Aluno alunoResponsavel = liga.getAlunoResponsavel();
