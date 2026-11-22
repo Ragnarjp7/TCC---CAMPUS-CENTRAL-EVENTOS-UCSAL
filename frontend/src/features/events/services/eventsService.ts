@@ -20,3 +20,12 @@ export async function fetchEvents({ page, mode }: EventsQuery): Promise<Page<Cam
   await delay(400);
   return paginate(mode ? EVENTS.filter((e) => e.mode === mode) : EVENTS, page, PAGE_SIZE);
 }
+
+export async function fetchEventById(id: number): Promise<CampusEvent> {
+  if (!isMockApi) return apiRequest<CampusEvent>(`/events/${id}`);
+
+  await delay(250);
+  const event = EVENTS.find((e) => e.id === id);
+  if (!event) throw new Error("Evento não encontrado.");
+  return { ...event };
+}

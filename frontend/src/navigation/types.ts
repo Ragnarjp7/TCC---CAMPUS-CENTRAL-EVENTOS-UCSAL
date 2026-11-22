@@ -16,6 +16,9 @@ export type RootStackParamList = {
   Main: NavigatorScreenParams<TabParamList> | undefined;
   Events: undefined;
   EventDetail: { event: CampusEvent };
+  Certificates: undefined;
+  Menu: undefined;
+  Placeholder: { title: string };
 };
 
 export type RootScreenProps<T extends keyof RootStackParamList> = NativeStackScreenProps<RootStackParamList, T>;

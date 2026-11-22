@@ -1,6 +1,7 @@
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import { ChevronLeft } from "lucide-react-native";
 import { Logo } from "@/shared/components/ui";
 import { colors } from "@/shared/theme/colors";
 import type { RootScreenProps } from "@/navigation/types";
@@ -11,10 +12,24 @@ const underlined = "border-b border-slate-300 pb-2 pt-1 text-sm text-slate-800";
 export default function LoginScreen({ navigation }: RootScreenProps<"Login">) {
   const form = useLoginForm({ onSuccess: () => navigation.reset({ index: 0, routes: [{ name: "Main" }] }) });
   const loading = form.viewState === "loading";
+  const goBack = () =>
+    navigation.canGoBack() ? navigation.goBack() : navigation.reset({ index: 0, routes: [{ name: "Main" }] });
 
   return (
     <SafeAreaView testID="login-screen" className="flex-1 bg-brand">
       <StatusBar style="light" />
+      <View className="flex-row px-4 pt-2">
+        <Pressable
+          testID="login-back-button"
+          accessibilityRole="button"
+          accessibilityLabel="Voltar"
+          hitSlop={8}
+          onPress={goBack}
+          className="size-9 items-center justify-center rounded-full bg-white/15 active:opacity-70"
+        >
+          <ChevronLeft size={22} color="#ffffff" />
+        </Pressable>
+      </View>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} className="flex-1">
         <ScrollView
           testID="login-scroll"

@@ -10,7 +10,17 @@ interface FeedHeaderProps {
 }
 
 export const FeedHeader = ({ query, onQueryChange, onMenuPress }: FeedHeaderProps) => (
-  <View testID="feed-header" className="mx-[15px] mb-3 mt-[15px] gap-3 rounded-[25px] bg-brand px-5 py-4 shadow-lg shadow-black/30 elevation-8">
+  <View
+    testID="feed-header"
+    className="mx-[15px] mb-3 mt-[15px] gap-3 rounded-[25px] bg-brand px-5 py-4"
+    style={{
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 6,
+      elevation: 8,
+    }}
+  >
     <View className="flex-row items-center justify-between">
       <Logo testID="feed-header-logo" light size="sm" />
       <Pressable testID="feed-header-menu-button" accessibilityLabel="Menu" onPress={onMenuPress} className="p-1">

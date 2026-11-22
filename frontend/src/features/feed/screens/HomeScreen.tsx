@@ -80,7 +80,7 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Início">) {
           pointerEvents="box-none"
           onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
         >
-          <FeedHeader query={home.query} onQueryChange={home.setQuery} onMenuPress={() => navigation.navigate("Perfil")} />
+          <FeedHeader query={home.query} onQueryChange={home.setQuery} onMenuPress={() => navigation.navigate("Menu")} />
         </View>
       </View>
     </SafeAreaView>
