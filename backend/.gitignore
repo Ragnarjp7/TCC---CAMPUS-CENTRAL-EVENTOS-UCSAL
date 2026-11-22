@@ -39,3 +39,24 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### React Native / Expo ###
+
+# Dependências do Node
+node_modules/
+**/node_modules/
+
+# Expo
+.expo/
+**/.expo/
+expo-dev-logs/
+**/expo-dev-logs/
+
+# Logs do Node e Expo
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Builds do frontend
+web-build/
+coverage/
