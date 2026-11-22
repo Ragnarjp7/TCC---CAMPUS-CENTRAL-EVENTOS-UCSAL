@@ -7,6 +7,7 @@ import br.edu.ucsal.campus.exception.NaoEncontradoException;
 import br.edu.ucsal.campus.model.Aluno;
 import br.edu.ucsal.campus.model.Evento;
 import br.edu.ucsal.campus.model.Inscricao;
+import br.edu.ucsal.campus.model.Inscricao.StatusInscricao;
 import br.edu.ucsal.campus.model.enums.Papel;
 import br.edu.ucsal.campus.repository.AlunoRepository;
 import br.edu.ucsal.campus.repository.EventoRepository;
@@ -26,91 +27,148 @@ public class InscricaoService {
     private final InscricaoRepository inscricaoRepository;
     private final EventoRepository eventoRepository;
     private final AlunoRepository alunoRepository;
+    private final AuditoriaService auditoriaService;
 
     public InscricaoService(
             InscricaoRepository inscricaoRepository,
             EventoRepository eventoRepository,
-            AlunoRepository alunoRepository) {
+            AlunoRepository alunoRepository,
+            AuditoriaService auditoriaService) {
 
         this.inscricaoRepository = inscricaoRepository;
         this.eventoRepository = eventoRepository;
         this.alunoRepository = alunoRepository;
+        this.auditoriaService = auditoriaService;
     }
 
     @Transactional
-    public DTOInscricaoResponse inscrever(Long eventoId, Long alunoId) {
+    public DTOInscricaoResponse inscrever(
+            Long eventoId,
+            Long alunoId,
+            UsuarioAutenticado usuario) {
 
         if (alunoId == null) {
-            throw new IllegalArgumentException("O alunoId é obrigatório");
+            throw new IllegalArgumentException(
+                    "O ID do aluno é obrigatório");
         }
 
+        if (usuario == null) {
+            throw new AccessDeniedException(
+                    "Usuário não autenticado");
+        }
+
+        // Bloqueia o evento durante a operação para controlar
+        // inscrições simultâneas e evitar ultrapassar a capacidade.
         Evento evento = eventoRepository.findByIdParaInscricao(eventoId)
                 .orElseThrow(() ->
-                        new EventoNaoEncontradoException("Evento não encontrado"));
+                        new EventoNaoEncontradoException(
+                                "Evento não encontrado"));
 
         Aluno aluno = alunoRepository.findById(alunoId)
                 .orElseThrow(() ->
-                        new NaoEncontradoException("Aluno não encontrado"));
+                        new NaoEncontradoException(
+                                "Aluno não encontrado"));
 
         if (evento.getStatus() != Evento.StatusEvento.APROVADO) {
-            throw new IllegalArgumentException(
+            throw new ConflitoException(
                     "Só é possível se inscrever em eventos aprovados");
         }
 
-        if (evento.getDataFim().isBefore(LocalDateTime.now())) {
-            throw new IllegalArgumentException(
+        if (evento.getDataFim() == null
+                || evento.getDataFim().isBefore(LocalDateTime.now())) {
+
+            throw new ConflitoException(
                     "Este evento já foi encerrado");
         }
 
-        if (inscricaoRepository.existsByAlunoIdAndEventoId(alunoId, eventoId)) {
+        boolean inscricaoAtiva = inscricaoRepository
+                .existsByAlunoIdAndEventoIdAndStatus(
+                        alunoId,
+                        eventoId,
+                        StatusInscricao.ATIVA);
+
+        if (inscricaoAtiva) {
             throw new ConflitoException(
-                    "O aluno já está inscrito neste evento");
+                    "O aluno já possui uma inscrição ativa neste evento");
         }
 
+        long totalInscricoesAtivas =
+                inscricaoRepository.countByEventoIdAndStatus(
+                        eventoId,
+                        StatusInscricao.ATIVA);
+
         if (evento.getCapacidade() != null
-                && inscricaoRepository.countByEventoId(eventoId) >= evento.getCapacidade()) {
+                && totalInscricoesAtivas >= evento.getCapacidade()) {
 
             throw new ConflitoException(
                     "O evento atingiu a capacidade máxima");
         }
 
-        Inscricao salva = inscricaoRepository.save(
-                new Inscricao(aluno, evento));
+        // Cada nova inscrição gera um registro independente,
+        // preservando as tentativas anteriores no histórico.
+        Inscricao novaInscricao = new Inscricao(aluno, evento);
+
+        Inscricao salva = inscricaoRepository.save(novaInscricao);
+
+        auditoriaService.registrar(
+                usuario,
+                "REALIZAR_INSCRICAO",
+                "INSCRICAO",
+                salva.getId(),
+                null,
+                "Status: ATIVA",
+                "Inscrição realizada no evento: " + evento.getTitulo()
+        );
 
         return DTOInscricaoResponse.de(salva);
     }
 
     @Transactional
-    public void cancelar(Long eventoId, Long alunoId) {
+    public void cancelar(
+            Long eventoId,
+            Long alunoId,
+            UsuarioAutenticado usuario) {
+
+        if (usuario == null) {
+            throw new AccessDeniedException(
+                    "Usuário não autenticado");
+        }
 
         Inscricao inscricao = inscricaoRepository
-                .findByAlunoIdAndEventoId(alunoId, eventoId)
+                .findFirstByAlunoIdAndEventoIdAndStatusOrderByDataInscricaoDesc(
+                        alunoId,
+                        eventoId,
+                        StatusInscricao.ATIVA)
                 .orElseThrow(() ->
-                        new NaoEncontradoException("Inscrição não encontrada"));
+                        new NaoEncontradoException(
+                                "Inscrição ativa não encontrada"));
 
-        inscricaoRepository.delete(inscricao);
+        inscricao.cancelar();
+
+        auditoriaService.registrar(
+                usuario,
+                "CANCELAR_INSCRICAO",
+                "INSCRICAO",
+                inscricao.getId(),
+                "Status: ATIVA",
+                "Status: CANCELADA",
+                "Inscrição cancelada no evento: "
+                        + inscricao.getEvento().getTitulo()
+        );
     }
 
-    // Lista os inscritos somente para CAEX e ADMIN
+    // Lista todas as inscrições do evento, incluindo canceladas.
+    // A consulta é restrita aos perfis CAEX e ADMIN.
     @Transactional(readOnly = true)
     public List<DTOInscricaoResponse> listarPorEvento(
             Long eventoId,
             UsuarioAutenticado usuario) {
 
-        if (usuario == null) {
-            throw new AccessDeniedException("Usuário não autenticado");
-        }
-
-        if (usuario.papeis() == null
-                || (!usuario.papeis().contains(Papel.CAEX)
-                && !usuario.papeis().contains(Papel.ADMIN))) {
-
-            throw new AccessDeniedException(
-                    "Somente CAEX ou ADMIN podem visualizar os inscritos do evento");
-        }
+        validarPermissaoConsulta(usuario);
 
         if (!eventoRepository.existsById(eventoId)) {
-            throw new EventoNaoEncontradoException("Evento não encontrado");
+            throw new EventoNaoEncontradoException(
+                    "Evento não encontrado");
         }
 
         return inscricaoRepository.findByEventoIdCompleto(eventoId)
@@ -119,16 +177,34 @@ public class InscricaoService {
                 .toList();
     }
 
+    // Retorna o histórico de inscrições de um aluno.
     @Transactional(readOnly = true)
     public List<DTOInscricaoResponse> listarPorAluno(Long alunoId) {
 
-        if (!alunoRepository.existsById(alunoId)) {
-            throw new NaoEncontradoException("Aluno não encontrado");
+        if (alunoId == null
+                || !alunoRepository.existsById(alunoId)) {
+
+            throw new NaoEncontradoException(
+                    "Aluno não encontrado");
         }
 
         return inscricaoRepository.findByAlunoIdCompleto(alunoId)
                 .stream()
                 .map(DTOInscricaoResponse::de)
                 .toList();
+    }
+
+    private void validarPermissaoConsulta(
+            UsuarioAutenticado usuario) {
+
+        if (usuario == null
+                || usuario.papeis() == null
+                || (!usuario.papeis().contains(Papel.CAEX)
+                && !usuario.papeis().contains(Papel.ADMIN))) {
+
+            throw new AccessDeniedException(
+                    "Somente CAEX ou ADMIN podem visualizar "
+                            + "as inscrições do evento");
+        }
     }
 }

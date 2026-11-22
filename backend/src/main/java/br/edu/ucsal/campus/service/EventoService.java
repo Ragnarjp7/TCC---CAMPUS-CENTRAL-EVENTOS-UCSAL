@@ -1,21 +1,24 @@
 package br.edu.ucsal.campus.service;
 
-import br.edu.ucsal.campus.model.Categoria;
-import br.edu.ucsal.campus.model.Evento;
-import br.edu.ucsal.campus.model.MembroLiga;
-import br.edu.ucsal.campus.model.enums.Permissao;
-import br.edu.ucsal.campus.model.enums.Papel;
-import br.edu.ucsal.campus.model.enums.StatusMembro;
-import br.edu.ucsal.campus.model.Liga;
-import br.edu.ucsal.campus.repository.CategoriaRepository;
-import br.edu.ucsal.campus.repository.EventoRepository;
-import br.edu.ucsal.campus.repository.MembroLigaRepository;
-import br.edu.ucsal.campus.repository.LigaRepository;
-import br.edu.ucsal.campus.security.UsuarioAutenticado;
 import br.edu.ucsal.campus.dto.DTOEventoRequest;
 import br.edu.ucsal.campus.dto.DTOStatusRequest;
 import br.edu.ucsal.campus.exception.ConflitoException;
 import br.edu.ucsal.campus.exception.EventoNaoEncontradoException;
+import br.edu.ucsal.campus.model.Categoria;
+import br.edu.ucsal.campus.model.Evento;
+import br.edu.ucsal.campus.model.Liga;
+import br.edu.ucsal.campus.model.MembroLiga;
+import br.edu.ucsal.campus.model.Usuario;
+import br.edu.ucsal.campus.model.enums.Papel;
+import br.edu.ucsal.campus.model.enums.Permissao;
+import br.edu.ucsal.campus.model.enums.StatusLiga;
+import br.edu.ucsal.campus.model.enums.StatusMembro;
+import br.edu.ucsal.campus.repository.CategoriaRepository;
+import br.edu.ucsal.campus.repository.EventoRepository;
+import br.edu.ucsal.campus.repository.LigaRepository;
+import br.edu.ucsal.campus.repository.MembroLigaRepository;
+import br.edu.ucsal.campus.repository.UsuarioRepository;
+import br.edu.ucsal.campus.security.UsuarioAutenticado;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,23 +37,29 @@ public class EventoService {
     private final CategoriaRepository categoriaRepository;
     private final MembroLigaRepository membroLigaRepository;
     private final LigaRepository ligaRepository;
+    private final UsuarioRepository usuarioRepository;
     private final NotificacaoService notificacaoService;
+    private final AuditoriaService auditoriaService;
 
     public EventoService(
             EventoRepository eventoRepository,
             CategoriaRepository categoriaRepository,
             MembroLigaRepository membroLigaRepository,
             LigaRepository ligaRepository,
-            NotificacaoService notificacaoService) {
+            UsuarioRepository usuarioRepository,
+            NotificacaoService notificacaoService,
+            AuditoriaService auditoriaService) {
 
         this.eventoRepository = eventoRepository;
         this.categoriaRepository = categoriaRepository;
         this.membroLigaRepository = membroLigaRepository;
         this.ligaRepository = ligaRepository;
+        this.usuarioRepository = usuarioRepository;
         this.notificacaoService = notificacaoService;
+        this.auditoriaService = auditoriaService;
     }
 
-    // Lista todos os eventos (consulta administrativa)
+    // Lista todos os eventos
     @Transactional(readOnly = true)
     public List<Evento> listarTodos() {
         return eventoRepository.findAllComCategoria();
@@ -62,9 +71,9 @@ public class EventoService {
 
         Evento evento = eventoRepository.findById(id)
                 .orElseThrow(() ->
-                        new EventoNaoEncontradoException("Evento não encontrado"));
+                        new EventoNaoEncontradoException(
+                                "Evento não encontrado"));
 
-        // Eventos aprovados podem ser visualizados publicamente
         if (evento.getStatus() == Evento.StatusEvento.APROVADO) {
             return evento;
         }
@@ -73,20 +82,17 @@ public class EventoService {
             throw new ConflitoException("Usuário não autenticado");
         }
 
-        // ADMIN e CAEX podem visualizar eventos em qualquer situação
         if (usuario.papeis() != null
                 && (usuario.papeis().contains(Papel.ADMIN)
                 || usuario.papeis().contains(Papel.CAEX))) {
             return evento;
         }
 
-        // Eventos não aprovados precisam estar associados a uma liga
         if (evento.getLiga() == null) {
             throw new ConflitoException(
                     "Você não tem permissão para visualizar este evento");
         }
 
-        // Verifica se o usuário é membro ativo da liga responsável
         membroLigaRepository.buscarMembroAtivo(
                 usuario.id(),
                 evento.getLiga().getId(),
@@ -104,7 +110,7 @@ public class EventoService {
         return eventoRepository.findByStatus(status);
     }
 
-    // Lista somente eventos aprovados de uma categoria
+    // Lista eventos aprovados de uma categoria
     @Transactional(readOnly = true)
     public List<Evento> listarPorCategoria(Long categoriaId) {
 
@@ -125,9 +131,7 @@ public class EventoService {
                     "Os dados do evento são obrigatórios");
         }
 
-        if (usuario == null) {
-            throw new ConflitoException("Usuário não autenticado");
-        }
+        validarUsuario(usuario);
 
         if (request.ligaId() == null) {
             throw new IllegalArgumentException("A liga é obrigatória");
@@ -137,12 +141,15 @@ public class EventoService {
             throw new IllegalArgumentException("A categoria é obrigatória");
         }
 
-        // Busca a liga responsável pelo evento
         Liga liga = ligaRepository.findById(request.ligaId())
                 .orElseThrow(() ->
                         new IllegalArgumentException("Liga não encontrada"));
 
-        // Verifica se o usuário é membro ativo da liga
+        if (liga.getStatus() != StatusLiga.APROVADA) {
+            throw new ConflitoException(
+                    "Somente ligas aprovadas podem cadastrar eventos");
+        }
+
         MembroLiga membro = membroLigaRepository.buscarMembroAtivo(
                 usuario.id(),
                 liga.getId(),
@@ -151,7 +158,6 @@ public class EventoService {
                 new ConflitoException(
                         "Você não é um membro ativo desta liga"));
 
-        // Verifica a permissão para criar eventos
         if (membro.getCargo() == null
                 || !membro.getCargo().getPermissoes()
                         .contains(Permissao.CRIAR_EVENTO)) {
@@ -160,12 +166,14 @@ public class EventoService {
                     "Seu cargo não possui permissão para criar eventos");
         }
 
-        // Busca a categoria
-        Categoria categoria = categoriaRepository.findById(request.categoriaId())
+        Categoria categoria = categoriaRepository
+                .findById(request.categoriaId())
                 .orElseThrow(() ->
-                        new IllegalArgumentException("Categoria não encontrada"));
+                        new IllegalArgumentException(
+                                "Categoria não encontrada"));
 
-        // Monta o evento
+        Usuario criador = buscarUsuario(usuario);
+
         Evento evento = new Evento();
 
         evento.setTitulo(request.titulo());
@@ -177,14 +185,26 @@ public class EventoService {
         evento.setCapacidade(request.capacidade());
         evento.setCategoria(categoria);
         evento.setLiga(liga);
+        evento.setCriadoPor(criador);
 
-        // Valida os campos obrigatórios
         validarCamposEvento(evento);
 
-        // Todo evento novo começa aguardando análise do CAEX
         evento.setStatus(Evento.StatusEvento.AGUARDANDO_ANALISE);
 
-        return eventoRepository.save(evento);
+        Evento eventoSalvo = eventoRepository.save(evento);
+
+        auditoriaService.registrar(
+                usuario,
+                "CRIAR_EVENTO",
+                "EVENTO",
+                eventoSalvo.getId(),
+                null,
+                descreverEvento(eventoSalvo),
+                "Criação do evento " + eventoSalvo.getTitulo()
+                        + " pela liga " + liga.getNome()
+        );
+
+        return eventoSalvo;
     }
 
     // Atualiza dados do evento após solicitação de ajustes
@@ -194,11 +214,21 @@ public class EventoService {
             Evento dados,
             UsuarioAutenticado usuario) {
 
+        validarUsuario(usuario);
+
+        if (dados == null) {
+            throw new IllegalArgumentException(
+                    "Os dados do evento são obrigatórios");
+        }
+
         Evento evento = eventoRepository.findById(id)
                 .orElseThrow(() ->
-                        new EventoNaoEncontradoException("Evento não encontrado"));
+                        new EventoNaoEncontradoException(
+                                "Evento não encontrado"));
 
-        if (evento.getStatus() != Evento.StatusEvento.AJUSTES_SOLICITADOS) {
+        if (evento.getStatus()
+                != Evento.StatusEvento.AJUSTES_SOLICITADOS) {
+
             throw new ConflitoException(
                     "Somente eventos com ajustes solicitados podem ser editados pela liga");
         }
@@ -206,10 +236,6 @@ public class EventoService {
         if (evento.getLiga() == null) {
             throw new ConflitoException(
                     "Este evento não está associado a uma liga");
-        }
-
-        if (usuario == null) {
-            throw new ConflitoException("Usuário não autenticado");
         }
 
         MembroLiga membro = membroLigaRepository.buscarMembroAtivo(
@@ -228,8 +254,9 @@ public class EventoService {
                     "Seu cargo não possui permissão para editar eventos");
         }
 
-        validarCamposEvento(dados);
+        String valoresAnteriores = descreverEvento(evento);
 
+        // Atualiza somente os campos permitidos
         evento.setTitulo(dados.getTitulo());
         evento.setDescricao(dados.getDescricao());
         evento.setLocal(dados.getLocal());
@@ -238,63 +265,81 @@ public class EventoService {
         evento.setModalidade(dados.getModalidade());
         evento.setCapacidade(dados.getCapacidade());
 
-        Categoria categoria = categoriaRepository
-                .findById(dados.getCategoria().getId())
-                .orElseThrow(() ->
-                        new IllegalArgumentException("Categoria não encontrada"));
+        // A categoria atual é preservada se não for enviada
+        if (dados.getCategoria() != null
+                && dados.getCategoria().getId() != null) {
 
-        evento.setCategoria(categoria);
+            Categoria categoria = categoriaRepository
+                    .findById(dados.getCategoria().getId())
+                    .orElseThrow(() ->
+                            new IllegalArgumentException(
+                                    "Categoria não encontrada"));
 
-        // Retorna o evento para análise do CAEX.
-        // A observação anterior é preservada.
+            evento.setCategoria(categoria);
+        }
+
+        // Liga, autoria e observação do CAEX não são alteradas
+        // pelo conteúdo recebido na requisição.
+        validarCamposEvento(evento);
+
         evento.setStatus(Evento.StatusEvento.AGUARDANDO_ANALISE);
 
-        return eventoRepository.save(evento);
+        Evento eventoAtualizado = eventoRepository.save(evento);
+
+        auditoriaService.registrar(
+                usuario,
+                "EDITAR_EVENTO",
+                "EVENTO",
+                eventoAtualizado.getId(),
+                valoresAnteriores,
+                descreverEvento(eventoAtualizado),
+                "Atualização do evento após solicitação de ajustes"
+        );
+
+        return eventoAtualizado;
     }
 
-    private static final Map<Evento.StatusEvento, Set<Evento.StatusEvento>> TRANSICOES = Map.of(
-            Evento.StatusEvento.AGUARDANDO_ANALISE,
-            EnumSet.of(
-                    Evento.StatusEvento.APROVADO,
-                    Evento.StatusEvento.AJUSTES_SOLICITADOS,
-                    Evento.StatusEvento.REJEITADO
-            ),
-
-            Evento.StatusEvento.AJUSTES_SOLICITADOS,
-            EnumSet.of(
+    private static final Map<Evento.StatusEvento, Set<Evento.StatusEvento>> TRANSICOES =
+            Map.of(
                     Evento.StatusEvento.AGUARDANDO_ANALISE,
+                    EnumSet.of(
+                            Evento.StatusEvento.APROVADO,
+                            Evento.StatusEvento.AJUSTES_SOLICITADOS,
+                            Evento.StatusEvento.REJEITADO
+                    ),
+
+                    Evento.StatusEvento.AJUSTES_SOLICITADOS,
+                    EnumSet.of(
+                            Evento.StatusEvento.AGUARDANDO_ANALISE,
+                            Evento.StatusEvento.REJEITADO,
+                            Evento.StatusEvento.CANCELADO
+                    ),
+
+                    Evento.StatusEvento.APROVADO,
+                    EnumSet.of(
+                            Evento.StatusEvento.CANCELADO,
+                            Evento.StatusEvento.ENCERRADO
+                    ),
+
                     Evento.StatusEvento.REJEITADO,
-                    Evento.StatusEvento.CANCELADO
-            ),
+                    EnumSet.noneOf(Evento.StatusEvento.class),
 
-            Evento.StatusEvento.APROVADO,
-            EnumSet.of(
                     Evento.StatusEvento.CANCELADO,
-                    Evento.StatusEvento.ENCERRADO
-            ),
+                    EnumSet.noneOf(Evento.StatusEvento.class),
 
-            Evento.StatusEvento.REJEITADO,
-            EnumSet.noneOf(Evento.StatusEvento.class),
+                    Evento.StatusEvento.ENCERRADO,
+                    EnumSet.noneOf(Evento.StatusEvento.class)
+            );
 
-            Evento.StatusEvento.CANCELADO,
-            EnumSet.noneOf(Evento.StatusEvento.class),
-
-            Evento.StatusEvento.ENCERRADO,
-            EnumSet.noneOf(Evento.StatusEvento.class)
-    );
-
-    // Atualiza status do evento (somente CAEX e ADMIN)
+    // Atualiza status do evento: somente CAEX e ADMIN
     @Transactional
     public Evento atualizarStatus(
             Long id,
             DTOStatusRequest request,
             UsuarioAutenticado usuario) {
 
-        if (usuario == null) {
-            throw new ConflitoException("Usuário não autenticado");
-        }
+        validarUsuario(usuario);
 
-        // Valida o papel do usuário
         if (usuario.papeis() == null
                 || (!usuario.papeis().contains(Papel.CAEX)
                 && !usuario.papeis().contains(Papel.ADMIN))) {
@@ -304,20 +349,24 @@ public class EventoService {
         }
 
         if (request == null || request.status() == null) {
-            throw new IllegalArgumentException("O status é obrigatório");
+            throw new IllegalArgumentException(
+                    "O status é obrigatório");
         }
 
         Evento evento = eventoRepository.findById(id)
                 .orElseThrow(() ->
-                        new EventoNaoEncontradoException("Evento não encontrado"));
+                        new EventoNaoEncontradoException(
+                                "Evento não encontrado"));
 
         Evento.StatusEvento novoStatus = request.status();
-        Evento.StatusEvento atual = evento.getStatus();
+        Evento.StatusEvento statusAtual = evento.getStatus();
 
-        if (!TRANSICOES.getOrDefault(atual, Set.of()).contains(novoStatus)) {
+        if (!TRANSICOES.getOrDefault(statusAtual, Set.of())
+                .contains(novoStatus)) {
+
             throw new ConflitoException(
                     "Não é possível mudar o status de "
-                            + atual + " para " + novoStatus);
+                            + statusAtual + " para " + novoStatus);
         }
 
         boolean decisaoCaex =
@@ -327,7 +376,9 @@ public class EventoService {
 
         String observacao = request.observacao();
 
-        if (decisaoCaex && (observacao == null || observacao.isBlank())) {
+        if (decisaoCaex
+                && (observacao == null || observacao.isBlank())) {
+
             throw new IllegalArgumentException(
                     "A observação é obrigatória para registrar a decisão do CAEX");
         }
@@ -338,11 +389,16 @@ public class EventoService {
         }
 
         if (novoStatus == Evento.StatusEvento.APROVADO
-                && evento.getDataFim().isBefore(LocalDateTime.now())) {
+                && (evento.getDataFim() == null
+                || evento.getDataFim().isBefore(LocalDateTime.now()))) {
 
             throw new IllegalArgumentException(
                     "Não é possível aprovar um evento que já terminou");
         }
+
+        String valoresAnteriores =
+                "status=" + statusAtual
+                + "; observacao=" + evento.getObservacaoCaex();
 
         if (decisaoCaex) {
             evento.setObservacaoCaex(observacao.trim());
@@ -352,67 +408,115 @@ public class EventoService {
 
         Evento eventoAtualizado = eventoRepository.save(evento);
 
-        // Envia notificações aos membros ativos da liga
+        auditoriaService.registrar(
+                usuario,
+                "ALTERAR_STATUS_EVENTO",
+                "EVENTO",
+                eventoAtualizado.getId(),
+                valoresAnteriores,
+                "status=" + novoStatus
+                        + "; observacao=" + eventoAtualizado.getObservacaoCaex(),
+                "Alteração do status do evento "
+                        + eventoAtualizado.getTitulo()
+        );
+
+        // Mantém as notificações das decisões do CAEX
         if (decisaoCaex) {
 
             String mensagem = switch (novoStatus) {
                 case APROVADO ->
-                        "O evento '" + evento.getTitulo()
+                        "O evento '" + eventoAtualizado.getTitulo()
                                 + "' foi aprovado pelo CAEX.";
 
                 case AJUSTES_SOLICITADOS ->
                         "O CAEX solicitou ajustes no evento '"
-                                + evento.getTitulo()
+                                + eventoAtualizado.getTitulo()
                                 + "'. Justificativa: "
-                                + evento.getObservacaoCaex();
+                                + eventoAtualizado.getObservacaoCaex();
 
                 case REJEITADO ->
-                        "O evento '" + evento.getTitulo()
+                        "O evento '" + eventoAtualizado.getTitulo()
                                 + "' foi rejeitado pelo CAEX."
                                 + " Justificativa: "
-                                + evento.getObservacaoCaex();
+                                + eventoAtualizado.getObservacaoCaex();
 
                 default -> "";
             };
 
-            notificacaoService.notificarLiga(eventoAtualizado, mensagem);
+            notificacaoService.notificarLiga(
+                    eventoAtualizado,
+                    mensagem
+            );
         }
 
         return eventoAtualizado;
     }
 
     // Valida os campos obrigatórios do evento
-    private void validarCamposEvento(Evento e) {
+    private void validarCamposEvento(Evento evento) {
 
-        if (isVazio(e.getTitulo()) || isVazio(e.getDescricao())
-                || isVazio(e.getLocal()) || isVazio(e.getModalidade())) {
+        if (isVazio(evento.getTitulo())
+                || isVazio(evento.getDescricao())
+                || isVazio(evento.getLocal())
+                || isVazio(evento.getModalidade())) {
 
             throw new IllegalArgumentException(
                     "Título, descrição, local e modalidade são obrigatórios");
         }
 
-        if (e.getCategoria() == null || e.getCategoria().getId() == null) {
-            throw new IllegalArgumentException("A categoria é obrigatória");
+        if (evento.getCategoria() == null
+                || evento.getCategoria().getId() == null) {
+
+            throw new IllegalArgumentException(
+                    "A categoria é obrigatória");
         }
 
-        if (e.getDataInicio() == null || e.getDataFim() == null) {
+        if (evento.getDataInicio() == null
+                || evento.getDataFim() == null) {
+
             throw new IllegalArgumentException(
                     "As datas de início e fim são obrigatórias");
         }
 
-        if (!e.getDataFim().isAfter(e.getDataInicio())) {
+        if (!evento.getDataFim().isAfter(evento.getDataInicio())) {
             throw new IllegalArgumentException(
                     "A data de fim deve ser posterior à data de início");
         }
 
-        if (e.getCapacidade() != null && e.getCapacidade() <= 0) {
+        if (evento.getCapacidade() != null
+                && evento.getCapacidade() <= 0) {
+
             throw new IllegalArgumentException(
                     "A capacidade deve ser maior que zero");
         }
     }
 
-    private boolean isVazio(String s) {
-        return s == null || s.isBlank();
+    private boolean isVazio(String valor) {
+        return valor == null || valor.isBlank();
+    }
+
+    private void validarUsuario(UsuarioAutenticado usuario) {
+        if (usuario == null) {
+            throw new ConflitoException("Usuário não autenticado");
+        }
+    }
+
+    private Usuario buscarUsuario(UsuarioAutenticado usuario) {
+        return usuarioRepository.findById(usuario.id())
+                .orElseThrow(() ->
+                        new ConflitoException(
+                                "Usuário responsável não encontrado"));
+    }
+
+    private String descreverEvento(Evento evento) {
+        return "titulo=" + evento.getTitulo()
+                + "; descricao=" + evento.getDescricao()
+                + "; local=" + evento.getLocal()
+                + "; dataInicio=" + evento.getDataInicio()
+                + "; dataFim=" + evento.getDataFim()
+                + "; modalidade=" + evento.getModalidade()
+                + "; capacidade=" + evento.getCapacidade()
+                + "; categoriaId=" + evento.getCategoria().getId();
     }
 
     // Eventos aprovados que acontecem em um dia
@@ -420,7 +524,8 @@ public class EventoService {
     public List<Evento> listarPorData(LocalDate data) {
 
         if (data == null) {
-            throw new IllegalArgumentException("A data é obrigatória");
+            throw new IllegalArgumentException(
+                    "A data é obrigatória");
         }
 
         return eventoRepository.findByPeriodoAndStatus(
@@ -430,9 +535,11 @@ public class EventoService {
         );
     }
 
-    // Eventos aprovados que acontecem dentro de um período
+    // Eventos aprovados dentro de um período
     @Transactional(readOnly = true)
-    public List<Evento> listarPorPeriodo(LocalDate inicio, LocalDate fim) {
+    public List<Evento> listarPorPeriodo(
+            LocalDate inicio,
+            LocalDate fim) {
 
         if (inicio == null || fim == null) {
             throw new IllegalArgumentException(

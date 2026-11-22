@@ -7,6 +7,7 @@ import br.edu.ucsal.campus.model.enums.StatusLiga;
 import br.edu.ucsal.campus.model.enums.StatusMembro;
 import br.edu.ucsal.campus.model.enums.Permissao;
 import br.edu.ucsal.campus.model.enums.TipoMembroLiga;
+import br.edu.ucsal.campus.model.enums.SituacaoAcademica;
 import br.edu.ucsal.campus.exception.ConflitoException;
 import br.edu.ucsal.campus.repository.AlunoRepository;
 import br.edu.ucsal.campus.repository.LigaRepository;
@@ -56,6 +57,11 @@ public class MembroLigaService {
         Aluno aluno = alunoRepository.findByUsuarioId(usuario.id())
                 .orElseThrow(() -> new ConflitoException(
                         "Não existe um cadastro de aluno associado a este usuário"));
+
+        if (aluno.getSituacao() != SituacaoAcademica.EM_ANDAMENTO) {
+            throw new ConflitoException(
+                    "Somente alunos com situação acadêmica em andamento podem participar de uma liga");
+        }
 
         Liga liga = ligaRepository.findById(ligaId)
                 .orElseThrow(() -> new IllegalArgumentException(
@@ -244,18 +250,34 @@ public class MembroLigaService {
                     "Somente membros ativos podem ser desativados");
         }
 
-        if (membro.getCargo() != null
-                && membro.getCargo().getPermissoes()
-                        .contains(Permissao.GERENCIAR_CARGOS)) {
+        if (membro.getCargo() != null) {
 
-            long responsaveis = membroLigaRepository.contarMembrosAtivosComPermissao(
-                    ligaId,
-                    StatusMembro.ATIVO,
-                    Permissao.GERENCIAR_CARGOS);
+            if (membro.getCargo().getPermissoes()
+                    .contains(Permissao.GERENCIAR_CARGOS)) {
 
-            if (responsaveis <= 1) {
-                throw new ConflitoException(
-                        "Não é possível desativar o último responsável pelo gerenciamento de cargos da liga");
+                long responsaveis = membroLigaRepository.contarMembrosAtivosComPermissao(
+                        ligaId,
+                        StatusMembro.ATIVO,
+                        Permissao.GERENCIAR_CARGOS);
+
+                if (responsaveis <= 1) {
+                    throw new ConflitoException(
+                            "Não é possível desativar o último responsável pelo gerenciamento de cargos da liga");
+                }
+            }
+
+            if (membro.getCargo().getPermissoes()
+                    .contains(Permissao.GERENCIAR_MEMBROS)) {
+
+                long responsaveis = membroLigaRepository.contarMembrosAtivosComPermissao(
+                        ligaId,
+                        StatusMembro.ATIVO,
+                        Permissao.GERENCIAR_MEMBROS);
+
+                if (responsaveis <= 1) {
+                    throw new ConflitoException(
+                            "Não é possível desativar o último responsável pelo gerenciamento de membros da liga");
+                }
             }
         }
 
@@ -302,14 +324,22 @@ public class MembroLigaService {
         }
     }
 
-    // Lista todos os membros de uma liga
+    // Lista somente os membros ativos de uma liga para usuários autenticados
     @Transactional(readOnly = true)
     public List<MembroLiga> listarMembros(
             Long ligaId,
             UsuarioAutenticado usuario) {
 
-        validarPermissaoGerenciarMembros(ligaId, usuario);
+        if (usuario == null) {
+            throw new AccessDeniedException("Usuário não autenticado");
+        }
 
-        return membroLigaRepository.findByLigaId(ligaId);
+        if (ligaId == null) {
+            throw new IllegalArgumentException("A liga é obrigatória");
+        }
+
+        return membroLigaRepository.findByLigaIdAndStatus(
+                ligaId,
+                StatusMembro.ATIVO);
     }
 }
