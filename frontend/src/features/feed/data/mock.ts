@@ -1,0 +1,66 @@
+import type { Post } from "../types";
+
+const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
+
+export const POSTS: Post[] = [
+  {
+    id: 1,
+    author: "Aws Community",
+    category: "Extensão",
+    createdAt: hoursAgo(1),
+    title: "Community Day",
+    body: "Participe do AWS Community Day: palestras, workshops e networking sobre computação em nuvem, com a comunidade AWS Salvador e convidados.",
+    imageUrl: null,
+    visibility: "public",
+  },
+  {
+    id: 2,
+    author: "Liga de Computação",
+    category: "Ligas",
+    createdAt: hoursAgo(5),
+    title: "Oficina de Python",
+    body: "Oficina introdutória de Python para iniciantes. Traga seu notebook e venha aprender na prática.",
+    imageUrl: null,
+    visibility: "public",
+  },
+  {
+    id: 3,
+    author: "UCSAL Júnior",
+    category: "Empresa Júnior",
+    createdAt: hoursAgo(9),
+    title: "Processo seletivo aberto",
+    body: "A empresa júnior está recrutando novos membros. Inscreva-se e conheça projetos reais com clientes.",
+    imageUrl: null,
+    visibility: "private",
+  },
+  {
+    id: 4,
+    author: "Biblioteca UCSAL",
+    category: "Acadêmico",
+    createdAt: hoursAgo(26),
+    title: "Acervo digital liberado",
+    body: "Acesse artigos e e-books do acervo digital com seu login institucional.",
+    imageUrl: null,
+    visibility: "private",
+  },
+  {
+    id: 5,
+    author: "Atlética UCSAL",
+    category: "Esporte",
+    createdAt: hoursAgo(30),
+    title: "Seletiva de futsal",
+    body: "Seletiva aberta para as equipes de futsal masculino e feminino. Compareça de tênis e camisa leve.",
+    imageUrl: null,
+    visibility: "public",
+  },
+  {
+    id: 6,
+    author: "Centro Cultural UCSAL",
+    category: "Cultural",
+    createdAt: hoursAgo(48),
+    title: "Sarau de fim de ano",
+    body: "Música, poesia e artes visuais produzidas por alunos. Entrada gratuita para a comunidade.",
+    imageUrl: null,
+    visibility: "public",
+  },
+];
