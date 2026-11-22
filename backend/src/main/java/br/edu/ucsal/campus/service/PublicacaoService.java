@@ -1,5 +1,6 @@
 package br.edu.ucsal.campus.service;
 
+import br.edu.ucsal.campus.dto.DTOPublicacaoFiltro;
 import br.edu.ucsal.campus.dto.DTOPublicacaoRequest;
 import br.edu.ucsal.campus.dto.DTOPublicacaoResponse;
 import br.edu.ucsal.campus.exception.ConflitoException;
@@ -59,30 +60,22 @@ public class PublicacaoService {
         validarConteudo(request);
 
         Usuario autor = buscarUsuario(usuario.id());
-
-        TipoAutorPublicacao tipoAutor =
-                identificarTipoAutor(usuario);
+        TipoAutorPublicacao tipoAutor = identificarTipoAutor(usuario);
 
         Publicacao publicacao = new Publicacao();
-
         publicacao.setAutor(autor);
         publicacao.setTipoAutor(tipoAutor);
 
         if (tipoAutor == TipoAutorPublicacao.LIGA) {
-
-            Liga liga = validarPublicacaoLiga(
-                    request.ligaId(),
-                    usuario
-            );
-
+            Liga liga = validarPublicacaoLiga(request.ligaId(), usuario);
             publicacao.setLigaAutora(liga);
-
         } else if (request.ligaId() != null) {
             throw new IllegalArgumentException(
                     "Somente publicações de ligas podem informar uma liga autora");
         }
 
         aplicarPublico(publicacao, request);
+        validarAlcanceDoCoordenador(publicacao, usuario);
 
         publicacao.setTitulo(request.titulo().trim());
         publicacao.setConteudo(request.conteudo().trim());
@@ -123,6 +116,8 @@ public class PublicacaoService {
                     "Você não tem permissão para editar esta publicação");
         }
 
+        validarVinculoDaLiga(publicacao, request, usuario);
+
         String tituloAnterior = publicacao.getTitulo();
         String conteudoAnterior = publicacao.getConteudo();
 
@@ -130,6 +125,7 @@ public class PublicacaoService {
         publicacao.setConteudo(request.conteudo().trim());
 
         aplicarPublico(publicacao, request);
+        validarAlcanceDoCoordenador(publicacao, usuario);
 
         publicacao.setDataAtualizacao(LocalDateTime.now());
 
@@ -152,14 +148,16 @@ public class PublicacaoService {
 
     // RF16 - Exclusão lógica de publicação
     @Transactional
-    public void excluir(
-            Long id,
-            UsuarioAutenticado usuario) {
+    public void excluir(Long id, UsuarioAutenticado usuario) {
 
         validarUsuario(usuario);
-        validarPermissaoAdministrativa(usuario);
 
         Publicacao publicacao = buscarPublicacao(id);
+
+        if (!podeExcluir(publicacao, usuario)) {
+            throw new AccessDeniedException(
+                    "Você não tem permissão para excluir esta publicação");
+        }
 
         publicacao.setAtiva(false);
         publicacao.setDataExclusao(LocalDateTime.now());
@@ -185,11 +183,9 @@ public class PublicacaoService {
 
         validarUsuario(usuario);
 
-        if (usuario.papeis() == null
-                || !usuario.papeis().contains(Papel.ALUNO)) {
-
+        if (!usuario.papeis().contains(Papel.ALUNO)) {
             throw new AccessDeniedException(
-                    "O feed institucional desta operação é destinado aos alunos");
+                    "O feed institucional é destinado aos alunos");
         }
 
         Aluno aluno = alunoRepository.findByUsuarioId(usuario.id())
@@ -199,12 +195,14 @@ public class PublicacaoService {
         return publicacaoRepository.buscarFeedPorCurso(
                         aluno.getCurso().getId(),
                         TipoAutorPublicacao.COORDENADOR,
+                        PublicoPublicacao.GERAL,
+                        PublicoPublicacao.CURSO_ESPECIFICO,
                         pageable
                 )
                 .map(DTOPublicacaoResponse::de);
     }
 
-    // Consulta as publicações criadas pelo usuário autenticado
+    // Publicações criadas pelo usuário ou pelas ligas das quais participa
     @Transactional(readOnly = true)
     public Page<DTOPublicacaoResponse> listarMinhas(
             UsuarioAutenticado usuario,
@@ -212,15 +210,15 @@ public class PublicacaoService {
 
         validarUsuario(usuario);
 
-        return publicacaoRepository
-                .findByAutorIdAndAtivaTrueOrderByDataCriacaoDesc(
+        return publicacaoRepository.buscarMinhasPublicacoes(
                         usuario.id(),
+                        StatusMembro.ATIVO,
                         pageable
                 )
                 .map(DTOPublicacaoResponse::de);
     }
 
-    // Busca uma publicação ativa
+    // Consulta uma publicação ativa respeitando seu público
     @Transactional(readOnly = true)
     public DTOPublicacaoResponse buscarPorId(
             Long id,
@@ -236,6 +234,60 @@ public class PublicacaoService {
         }
 
         return DTOPublicacaoResponse.de(publicacao);
+    }
+
+    // Consulta administrativa com filtros
+    @Transactional(readOnly = true)
+    public Page<DTOPublicacaoResponse> pesquisarAdministrativamente(
+            DTOPublicacaoFiltro filtro,
+            UsuarioAutenticado usuario,
+            Pageable pageable) {
+
+        validarUsuario(usuario);
+
+        if (filtro == null) {
+            filtro = new DTOPublicacaoFiltro(
+                    null, null, null, null, null);
+        }
+
+        String texto = normalizarTexto(filtro.texto());
+
+        if (usuario.papeis().contains(Papel.CAEX)) {
+            return publicacaoRepository.pesquisarAdministrativamente(
+                            texto,
+                            filtro.tipoAutor(),
+                            filtro.publico(),
+                            filtro.cursoId(),
+                            filtro.autorId(),
+                            pageable
+                    )
+                    .map(DTOPublicacaoResponse::de);
+        }
+
+        if (usuario.papeis().contains(Papel.COORDENADOR)) {
+            Long cursoId = buscarCursoDoCoordenador(usuario.id());
+
+            if (filtro.cursoId() != null
+                    && !filtro.cursoId().equals(cursoId)) {
+                throw new AccessDeniedException(
+                        "O coordenador só pode consultar publicações do próprio curso");
+            }
+
+            return publicacaoRepository.pesquisarPorCurso(
+                            texto,
+                            filtro.tipoAutor(),
+                            filtro.publico(),
+                            cursoId,
+                            usuario.id(),
+                            PublicoPublicacao.GERAL,
+                            filtro.autorId(),
+                            pageable
+                    )
+                    .map(DTOPublicacaoResponse::de);
+        }
+
+        throw new AccessDeniedException(
+                "Somente CAEX ou coordenadores podem consultar publicações administrativamente");
     }
 
     private TipoAutorPublicacao identificarTipoAutor(
@@ -297,12 +349,35 @@ public class PublicacaoService {
         if (membro.getCargo() == null
                 || !membro.getCargo().getPermissoes()
                         .contains(Permissao.PUBLICAR)) {
-
             throw new AccessDeniedException(
                     "Seu cargo não possui permissão para publicar pela liga");
         }
 
         return liga;
+    }
+
+    private void validarVinculoDaLiga(
+            Publicacao publicacao,
+            DTOPublicacaoRequest request,
+            UsuarioAutenticado usuario) {
+
+        if (publicacao.getTipoAutor() == TipoAutorPublicacao.LIGA) {
+            if (publicacao.getLigaAutora() == null
+                    || request.ligaId() == null
+                    || !publicacao.getLigaAutora().getId()
+                            .equals(request.ligaId())) {
+                throw new IllegalArgumentException(
+                        "A liga autora da publicação não pode ser alterada");
+            }
+
+            validarPublicacaoLiga(request.ligaId(), usuario);
+            return;
+        }
+
+        if (request.ligaId() != null) {
+            throw new IllegalArgumentException(
+                    "Esta publicação não pertence a uma liga");
+        }
     }
 
     private void aplicarPublico(
@@ -317,7 +392,6 @@ public class PublicacaoService {
         publicacao.setPublico(request.publico());
 
         if (request.publico() == PublicoPublicacao.GERAL) {
-
             if (request.cursoDestinoId() != null) {
                 throw new IllegalArgumentException(
                         "Publicações gerais não devem informar curso de destino");
@@ -332,10 +406,9 @@ public class PublicacaoService {
                     "Selecione um curso para a publicação específica");
         }
 
-        Curso curso = cursoRepository.findById(
-                request.cursoDestinoId()
-        ).orElseThrow(() -> new IllegalArgumentException(
-                "Curso de destino não encontrado"));
+        Curso curso = cursoRepository.findById(request.cursoDestinoId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Curso de destino não encontrado"));
 
         publicacao.setCursoDestino(curso);
     }
@@ -344,8 +417,44 @@ public class PublicacaoService {
             Publicacao publicacao,
             UsuarioAutenticado usuario) {
 
-        return publicacao.getAutor().getId().equals(usuario.id())
-                || possuiPermissaoAdministrativa(usuario);
+        if (usuario.papeis().contains(Papel.CAEX)) {
+            return true;
+        }
+
+        if (publicacao.getAutor().getId().equals(usuario.id())) {
+            return true;
+        }
+
+        if (usuario.papeis().contains(Papel.COORDENADOR)) {
+            Long cursoId = buscarCursoDoCoordenador(usuario.id());
+
+            return publicacao.getPublico()
+                            == PublicoPublicacao.CURSO_ESPECIFICO
+                    && publicacao.getCursoDestino() != null
+                    && publicacao.getCursoDestino().getId().equals(cursoId);
+        }
+
+        return false;
+    }
+
+    private boolean podeExcluir(
+            Publicacao publicacao,
+            UsuarioAutenticado usuario) {
+
+        if (usuario.papeis().contains(Papel.CAEX)) {
+            return true;
+        }
+
+        if (usuario.papeis().contains(Papel.COORDENADOR)) {
+            Long cursoId = buscarCursoDoCoordenador(usuario.id());
+
+            return publicacao.getPublico()
+                            == PublicoPublicacao.CURSO_ESPECIFICO
+                    && publicacao.getCursoDestino() != null
+                    && publicacao.getCursoDestino().getId().equals(cursoId);
+        }
+
+        return false;
     }
 
     private boolean podeVisualizar(
@@ -356,55 +465,68 @@ public class PublicacaoService {
             return true;
         }
 
-        if (usuario.papeis() != null
-                && usuario.papeis().contains(Papel.ALUNO)) {
+        if (usuario.papeis().contains(Papel.CAEX)) {
+            return true;
+        }
 
+        if (usuario.papeis().contains(Papel.ALUNO)) {
             return alunoRepository.findByUsuarioId(usuario.id())
                     .map(aluno -> aluno.getCurso().getId()
                             .equals(publicacao.getCursoDestino().getId()))
                     .orElse(false);
         }
 
-        return possuiPermissaoAdministrativa(usuario)
-                || publicacao.getAutor().getId().equals(usuario.id());
+        if (usuario.papeis().contains(Papel.COORDENADOR)) {
+            return publicacao.getCursoDestino() != null
+                    && publicacao.getCursoDestino().getId()
+                            .equals(buscarCursoDoCoordenador(usuario.id()));
+        }
+
+        return publicacao.getAutor().getId().equals(usuario.id());
     }
 
-    private void validarPermissaoAdministrativa(
+    private void validarAlcanceDoCoordenador(
+            Publicacao publicacao,
             UsuarioAutenticado usuario) {
 
-        if (!possuiPermissaoAdministrativa(usuario)) {
+        if (!usuario.papeis().contains(Papel.COORDENADOR)
+                || publicacao.getPublico() == PublicoPublicacao.GERAL) {
+            return;
+        }
+
+        Long cursoId = buscarCursoDoCoordenador(usuario.id());
+
+        if (!publicacao.getCursoDestino().getId().equals(cursoId)) {
             throw new AccessDeniedException(
-                    "Somente CAEX ou coordenadores podem executar esta operação");
+                    "O coordenador só pode direcionar publicações ao próprio curso");
         }
     }
 
-    private boolean possuiPermissaoAdministrativa(
-            UsuarioAutenticado usuario) {
+    private Long buscarCursoDoCoordenador(Long usuarioId) {
+        return publicacaoRepository.buscarCursoIdDoCoordenador(usuarioId)
+                .orElseThrow(() -> new AccessDeniedException(
+                        "Não existe curso vinculado a este coordenador"));
+    }
 
-        return usuario != null
-                && usuario.papeis() != null
-                && (usuario.papeis().contains(Papel.CAEX)
-                || usuario.papeis().contains(Papel.COORDENADOR));
+    private String normalizarTexto(String texto) {
+        return texto == null || texto.isBlank()
+                ? null
+                : texto.trim();
     }
 
     private void validarUsuario(UsuarioAutenticado usuario) {
-
         if (usuario == null || usuario.id() == null
                 || usuario.papeis() == null) {
-
-            throw new AccessDeniedException(
-                    "Usuário não autenticado");
+            throw new AccessDeniedException("Usuário não autenticado");
         }
     }
 
     private void validarConteudo(DTOPublicacaoRequest request) {
-
         if (request == null
                 || request.titulo() == null
                 || request.titulo().isBlank()
                 || request.conteudo() == null
                 || request.conteudo().isBlank()) {
-
             throw new IllegalArgumentException(
                     "Título e conteúdo são obrigatórios");
         }
@@ -416,14 +538,12 @@ public class PublicacaoService {
     }
 
     private Usuario buscarUsuario(Long usuarioId) {
-
         return usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Usuário não encontrado"));
     }
 
     private Publicacao buscarPublicacao(Long id) {
-
         return publicacaoRepository.findByIdAndAtivaTrue(id)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Publicação não encontrada"));

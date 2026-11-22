@@ -1,5 +1,6 @@
 package br.edu.ucsal.campus.controller;
 
+import br.edu.ucsal.campus.dto.DTOPublicacaoFiltro;
 import br.edu.ucsal.campus.dto.DTOPublicacaoRequest;
 import br.edu.ucsal.campus.dto.DTOPublicacaoResponse;
 import br.edu.ucsal.campus.security.UsuarioAutenticado;
@@ -51,7 +52,6 @@ public class PublicacaoController {
             @AuthenticationPrincipal UsuarioAutenticado usuario) {
 
         publicacaoService.excluir(id, usuario);
-
         return ResponseEntity.noContent().build();
     }
 
@@ -66,7 +66,7 @@ public class PublicacaoController {
         );
     }
 
-    // Publicações do usuário autenticado
+    // Publicações do usuário e de suas ligas
     @GetMapping("/minhas")
     public ResponseEntity<Page<DTOPublicacaoResponse>> listarMinhas(
             @AuthenticationPrincipal UsuarioAutenticado usuario,
@@ -74,6 +74,19 @@ public class PublicacaoController {
 
         return ResponseEntity.ok(
                 publicacaoService.listarMinhas(usuario, pageable)
+        );
+    }
+
+    // Consulta administrativa com filtros
+    @GetMapping("/administrativo")
+    public ResponseEntity<Page<DTOPublicacaoResponse>> pesquisarAdministrativamente(
+            @ModelAttribute DTOPublicacaoFiltro filtro,
+            @AuthenticationPrincipal UsuarioAutenticado usuario,
+            Pageable pageable) {
+
+        return ResponseEntity.ok(
+                publicacaoService.pesquisarAdministrativamente(
+                        filtro, usuario, pageable)
         );
     }
 
