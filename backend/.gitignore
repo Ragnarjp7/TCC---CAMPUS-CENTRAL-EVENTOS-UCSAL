@@ -4,6 +4,14 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
+# Arquivos locais e informações sensíveis
+.env
+.env.*
+!.env.example
+application-local.properties
+application-dev-local.properties
+*.log
+
 ### STS ###
 .apt_generated
 .classpath
