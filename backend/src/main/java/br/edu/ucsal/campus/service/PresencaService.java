@@ -181,27 +181,41 @@ public class PresencaService {
     private void validarPeriodoEvento(Evento evento) {
 
         if (evento.getStatus() != Evento.StatusEvento.APROVADO) {
-            throw new ConflitoException(
-                    "O evento não está aprovado para receber confirmações de presença");
+                throw new ConflitoException(
+                        "O evento não está aprovado para receber confirmações de presença");
         }
 
         if (evento.getDataInicio() == null
-                || evento.getDataFim() == null) {
+                || evento.getDataFim() == null
+                || evento.getHoraInicio() == null
+                || evento.getHoraFim() == null) {
 
-            throw new ConflitoException(
-                    "O evento não possui um período válido");
+                throw new ConflitoException(
+                        "O evento não possui um período válido");
         }
 
         LocalDateTime agora = LocalDateTime.now();
 
-        if (agora.isBefore(evento.getDataInicio())) {
-            throw new ConflitoException(
-                    "A confirmação de presença ainda não está disponível");
+        // Combina a data e o horário de início.
+        LocalDateTime inicioEvento = LocalDateTime.of(
+                evento.getDataInicio(),
+                evento.getHoraInicio()
+        );
+
+        // Combina a data e o horário de término.
+        LocalDateTime fimEvento = LocalDateTime.of(
+                evento.getDataFim(),
+                evento.getHoraFim()
+        );
+
+        if (agora.isBefore(inicioEvento)) {
+                throw new ConflitoException(
+                        "A confirmação de presença ainda não está disponível");
         }
 
-        if (agora.isAfter(evento.getDataFim())) {
-            throw new ConflitoException(
-                    "O período de confirmação de presença foi encerrado");
+        if (agora.isAfter(fimEvento)) {
+                throw new ConflitoException(
+                        "O período de confirmação de presença foi encerrado");
         }
     }
 

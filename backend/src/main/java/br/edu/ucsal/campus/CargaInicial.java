@@ -45,7 +45,7 @@ public class CargaInicial implements CommandLineRunner {
             CargoRepository cargoRepository,
             MembroLigaRepository membroLigaRepository,
             PasswordEncoder passwordEncoder,
-            @Value("${SEED_INITIAL_PASSWORD:}") String senhaInicial) {
+            @Value("123456") String senhaInicial) {
 
         this.usuarioRepository = usuarioRepository;
         this.cursoRepository = cursoRepository;
