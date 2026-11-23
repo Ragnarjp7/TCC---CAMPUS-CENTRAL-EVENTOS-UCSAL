@@ -9,18 +9,21 @@ public record DTOCodigoPresencaResponse(
         Long eventoId,
         String token,
         boolean ativo,
-        LocalDateTime dataCriacao
+        LocalDateTime dataCriacao,
+        String qrCodeBase64
 ) {
 
     public static DTOCodigoPresencaResponse de(
-            CodigoPresenca codigo) {
+            CodigoPresenca codigo,
+            String qrCodeBase64) {
 
         return new DTOCodigoPresencaResponse(
                 codigo.getId(),
                 codigo.getEvento().getId(),
                 codigo.getToken(),
                 codigo.isAtivo(),
-                codigo.getDataCriacao()
+                codigo.getDataCriacao(),
+                qrCodeBase64
         );
     }
 }
