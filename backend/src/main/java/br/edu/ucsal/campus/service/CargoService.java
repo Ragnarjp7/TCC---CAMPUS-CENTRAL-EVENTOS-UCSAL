@@ -65,10 +65,16 @@ public class CargoService {
         cargo.setNome(request.nome().trim());
         cargo.setLiga(liga);
 
-        cargo.setPermissoes(
-                request.permissoes() == null
-                        ? new HashSet<>()
-                        : new HashSet<>(request.permissoes()));
+        Set<Permissao> permissoes = request.permissoes() == null
+                ? new HashSet<>()
+                : new HashSet<>(request.permissoes());
+
+        validarPermissaoCriarEvento(
+                request.nome(),
+                permissoes
+        );
+
+        cargo.setPermissoes(permissoes);
 
         Cargo cargoSalvo = cargoRepository.save(cargo);
 
@@ -113,17 +119,21 @@ public class CargoService {
                     "Já existe outro cargo com esse nome nesta liga");
         }
 
-        String valoresAnteriores =
-                "nome=" + cargo.getNome()
+        String valoresAnteriores = "nome=" + cargo.getNome()
                 + "; permissoes=" + cargo.getPermissoes();
 
         Set<Permissao> novasPermissoes = request.permissoes() == null
                 ? new HashSet<>()
                 : new HashSet<>(request.permissoes());
 
+        validarPermissaoCriarEvento(
+                request.nome(),
+                novasPermissoes
+        );
+
         boolean removendoGerenciamento =
                 cargo.getPermissoes().contains(Permissao.GERENCIAR_CARGOS)
-                && !novasPermissoes.contains(Permissao.GERENCIAR_CARGOS);
+                        && !novasPermissoes.contains(Permissao.GERENCIAR_CARGOS);
 
         if (removendoGerenciamento) {
 
@@ -132,17 +142,20 @@ public class CargoService {
                             ligaId,
                             cargoId,
                             StatusMembro.ATIVO,
-                            Permissao.GERENCIAR_CARGOS);
+                            Permissao.GERENCIAR_CARGOS
+                    );
 
             long responsaveisNaLiga =
                     membroLigaRepository.contarMembrosAtivosComPermissao(
                             ligaId,
                             StatusMembro.ATIVO,
-                            Permissao.GERENCIAR_CARGOS);
+                            Permissao.GERENCIAR_CARGOS
+                    );
 
             if (responsaveisNaLiga - membrosNoCargo < 1) {
                 throw new ConflitoException(
-                        "Não é possível remover a permissão GERENCIAR_CARGOS deste cargo, pois a liga ficaria sem responsável");
+                        "Não é possível remover a permissão GERENCIAR_CARGOS deste cargo, "
+                                + "pois a liga ficaria sem responsável");
             }
         }
 
@@ -186,7 +199,8 @@ public class CargoService {
 
         if (membroLigaRepository.existsByCargoId(cargoId)) {
             throw new ConflitoException(
-                    "Não é possível excluir este cargo, pois existem membros vinculados a ele. Remova os vínculos antes de tentar novamente");
+                    "Não é possível excluir este cargo, pois existem membros "
+                            + "vinculados a ele. Remova os vínculos antes de tentar novamente");
         }
 
         String nomeCargo = cargo.getNome();
@@ -262,11 +276,13 @@ public class CargoService {
                     membroLigaRepository.contarMembrosAtivosComPermissao(
                             ligaId,
                             StatusMembro.ATIVO,
-                            Permissao.GERENCIAR_CARGOS);
+                            Permissao.GERENCIAR_CARGOS
+                    );
 
             if (responsaveisNaLiga <= 1) {
                 throw new ConflitoException(
-                        "Não é possível atribuir este cargo, pois a liga ficaria sem responsável pelo gerenciamento de cargos");
+                        "Não é possível atribuir este cargo, pois a liga "
+                                + "ficaria sem responsável pelo gerenciamento de cargos");
             }
         }
 
@@ -317,6 +333,28 @@ public class CargoService {
         }
     }
 
+    // Garante que somente o cargo Presidente tenha permissão para criar eventos
+    private void validarPermissaoCriarEvento(
+            String nomeCargo,
+            Set<Permissao> permissoes) {
+
+        boolean cargoPresidente = nomeCargo != null
+                && nomeCargo.trim().equalsIgnoreCase("Presidente");
+
+        boolean possuiPermissao = permissoes != null
+                && permissoes.contains(Permissao.CRIAR_EVENTO);
+
+        if (cargoPresidente && !possuiPermissao) {
+            throw new ConflitoException(
+                    "O cargo Presidente precisa possuir a permissão CRIAR_EVENTO");
+        }
+
+        if (!cargoPresidente && possuiPermissao) {
+            throw new ConflitoException(
+                    "Somente o cargo Presidente pode possuir a permissão CRIAR_EVENTO");
+        }
+    }
+
     // Verifica se o usuário possui permissão para gerenciar cargos
     private void validarPermissaoGerenciarCargos(
             Long ligaId,
@@ -329,10 +367,10 @@ public class CargoService {
         MembroLiga membro = membroLigaRepository.buscarMembroAtivo(
                 usuario.id(),
                 ligaId,
-                StatusMembro.ATIVO)
-                .orElseThrow(() ->
-                        new AccessDeniedException(
-                                "Você não é membro ativo desta liga"));
+                StatusMembro.ATIVO
+        ).orElseThrow(() ->
+                new AccessDeniedException(
+                        "Você não é membro ativo desta liga"));
 
         if (membro.getCargo() == null
                 || !membro.getCargo().getPermissoes()
