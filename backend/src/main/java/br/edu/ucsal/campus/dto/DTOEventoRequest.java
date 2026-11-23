@@ -1,29 +1,77 @@
 package br.edu.ucsal.campus.dto;
 
 import br.edu.ucsal.campus.model.Evento;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.HashSet;
 import java.util.Set;
 
-// RF27 - Cadastro (e reenvio após ajustes) de evento.
-// ligaId: obrigatório para estudantes (presidência da liga); opcional para professores e coordenadores.
-// proposta: formulário completo da CAEX em JSON, guardado como veio para a análise (RF29).
+/**
+ * Dados para cadastro e reenvio de proposta de evento.
+ * Mantém os campos legados usados pela listagem e os campos completos
+ * do formulário de submissão ao CAEX.
+ */
 public record DTOEventoRequest(
-
-        // Vínculos
         Long ligaId,
         Long categoriaId,
-        Long ligaId,
-        String proposta
+        String proposta,
+
+        // Dados básicos/compatibilidade com o fluxo de eventos
+        String titulo,
+        String descricao,
+        String local,
+        LocalDate dataInicio,
+        LocalDate dataFim,
+        String modalidade,
+        Integer capacidade,
+
+        // Dados do proponente
+        String proponenteNome,
+        String proponenteCpf,
+        String proponenteEmail,
+        String proponenteTelefone,
+        String proponenteLattes,
+        String proponenteMiniCurriculo,
+
+        // Formulário CAEX
+        String caracterizacaoAtividade,
+        Evento.AreaTematica areaTematica,
+        Evento.Abrangencia abrangencia,
+        Evento.TipoExtensao tipoExtensao,
+        String apresentacao,
+        Boolean publicarNoCampus,
+        String objetivoGeral,
+        String objetivosEspecificos,
+        String publicoAlvo,
+        Evento.TipoLocal tipoLocal,
+        String localDetalhe,
+        Evento.EspacoRealizacao espacoRealizacao,
+        String especificacaoEspaco,
+        Evento.FaixaVagas faixaVagas,
+        Set<Evento.RecursoAudiovisual> recursos,
+        String recursosOutro,
+        LocalTime horaInicio,
+        LocalTime horaFim,
+        String diasHorarios,
+        String programacao,
+        Boolean emiteCertificado,
+        Evento.TipoInvestimento tipoInvestimento,
+        BigDecimal valor,
+        String linkPecasPublicitarias,
+        String observacoes,
+        Boolean autorizacaoLgpd
 ) {
-
-    // Converte o DTO em entidade (liga, categoria e criador são definidos no service)
     public Evento toEvento() {
-
         Evento e = new Evento();
+
+        e.setTitulo(titulo);
+        e.setDescricao(descricao);
+        e.setLocal(local);
+        e.setDataInicio(dataInicio);
+        e.setDataFim(dataFim);
+        e.setModalidade(modalidade);
+        e.setCapacidade(capacidade);
+        e.setProposta(proposta);
 
         e.setProponenteNome(proponenteNome);
         e.setProponenteCpf(proponenteCpf);
@@ -32,7 +80,6 @@ public record DTOEventoRequest(
         e.setProponenteLattes(proponenteLattes);
         e.setProponenteMiniCurriculo(proponenteMiniCurriculo);
 
-        e.setTitulo(titulo);
         e.setCaracterizacaoAtividade(caracterizacaoAtividade);
         e.setAreaTematica(areaTematica);
         e.setAbrangencia(abrangencia);
@@ -47,29 +94,19 @@ public record DTOEventoRequest(
         e.setEspacoRealizacao(espacoRealizacao);
         e.setEspecificacaoEspaco(especificacaoEspaco);
         e.setFaixaVagas(faixaVagas);
-        e.setRecursos(recursos == null ? new HashSet<>() : new HashSet<>(recursos));
+        e.setRecursos(recursos);
         e.setRecursosOutro(recursosOutro);
-        e.setDataInicio(dataInicio);
-        e.setDataFim(dataFim);
         e.setHoraInicio(horaInicio);
         e.setHoraFim(horaFim);
         e.setDiasHorarios(diasHorarios);
         e.setProgramacao(programacao);
-
         e.setEmiteCertificado(Boolean.TRUE.equals(emiteCertificado));
-
         e.setTipoInvestimento(tipoInvestimento);
         e.setValor(valor);
-
         e.setLinkPecasPublicitarias(linkPecasPublicitarias);
         e.setObservacoes(observacoes);
         e.setAutorizacaoLgpd(Boolean.TRUE.equals(autorizacaoLgpd));
 
         return e;
-    }
-
-    public Object descricao() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'descricao'");
     }
 }

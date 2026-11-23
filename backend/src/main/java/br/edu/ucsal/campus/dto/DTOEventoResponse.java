@@ -2,17 +2,16 @@ package br.edu.ucsal.campus.dto;
 
 import br.edu.ucsal.campus.model.Evento;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
-// Evento como é exibido nas consultas (lista, filtros e detalhe).
-// "inscrito" só é preenchido para aluno logado; nos demais casos vem nulo.
+// Evento exibido nas consultas, listas, filtros e detalhes.
 public record DTOEventoResponse(
         Long id,
         String titulo,
         String descricao,
         String local,
-        LocalDateTime dataInicio,
-        LocalDateTime dataFim,
+        LocalDate dataInicio,
+        LocalDate dataFim,
         String modalidade,
         Evento.StatusEvento status,
         Integer capacidade,
@@ -24,7 +23,11 @@ public record DTOEventoResponse(
         Boolean inscrito
 ) {
 
-    public static DTOEventoResponse de(Evento e, long inscritos, Boolean inscrito) {
+    public static DTOEventoResponse de(
+            Evento e,
+            long inscritos,
+            Boolean inscrito
+    ) {
         boolean temLiga = e.getLiga() != null;
         boolean temCategoria = e.getCategoria() != null;
 

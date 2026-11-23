@@ -13,6 +13,14 @@ import java.util.Optional;
 
 public interface InscricaoRepository extends JpaRepository<Inscricao, Long> {
 
+    boolean existsByAlunoIdAndEventoIdAndStatus(
+            Long alunoId, Long eventoId, StatusInscricao status);
+
+    long countByEventoIdAndStatus(Long eventoId, StatusInscricao status);
+
+    Optional<Inscricao> findFirstByAlunoIdAndEventoIdAndStatusOrderByDataInscricaoDesc(
+            Long alunoId, Long eventoId, StatusInscricao status);
+
     boolean existsByAlunoIdAndEventoId(Long alunoId, Long eventoId);
 
     long countByEventoId(Long eventoId);

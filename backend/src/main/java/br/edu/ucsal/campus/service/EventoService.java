@@ -10,10 +10,9 @@ import br.edu.ucsal.campus.model.Liga;
 import br.edu.ucsal.campus.model.MembroLiga;
 import br.edu.ucsal.campus.model.Usuario;
 import br.edu.ucsal.campus.model.enums.Papel;
+import br.edu.ucsal.campus.model.enums.Permissao;
 import br.edu.ucsal.campus.model.enums.StatusLiga;
 import br.edu.ucsal.campus.model.enums.StatusMembro;
-import br.edu.ucsal.campus.model.Liga;
-import br.edu.ucsal.campus.model.Usuario;
 import br.edu.ucsal.campus.repository.AlunoRepository;
 import br.edu.ucsal.campus.repository.CategoriaRepository;
 import br.edu.ucsal.campus.repository.EventoRepository;
@@ -23,12 +22,8 @@ import br.edu.ucsal.campus.repository.LigaRepository;
 import br.edu.ucsal.campus.repository.UsuarioRepository;
 import br.edu.ucsal.campus.security.UsuarioAutenticado;
 import br.edu.ucsal.campus.dto.DTOEventoAnaliseResponse;
-import br.edu.ucsal.campus.dto.DTOEventoRequest;
 import br.edu.ucsal.campus.dto.DTOEventoResponse;
 import br.edu.ucsal.campus.dto.DTOPagina;
-import br.edu.ucsal.campus.dto.DTOStatusRequest;
-import br.edu.ucsal.campus.exception.ConflitoException;
-import br.edu.ucsal.campus.exception.EventoNaoEncontradoException;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -58,7 +53,6 @@ public class EventoService {
     private final NotificacaoService notificacaoService;
     private final InscricaoRepository inscricaoRepository;
     private final AlunoRepository alunoRepository;
-    private final UsuarioRepository usuarioRepository;
 
     // Limite de itens por página na consulta pública
     private static final int TAMANHO_MAXIMO_PAGINA = 50;
@@ -90,7 +84,6 @@ public class EventoService {
         this.notificacaoService = notificacaoService;
         this.inscricaoRepository = inscricaoRepository;
         this.alunoRepository = alunoRepository;
-        this.usuarioRepository = usuarioRepository;
     }
 
     // Lista todos os eventos
@@ -219,11 +212,10 @@ public class EventoService {
         }
 
         // "Disponível" = ainda não terminou; um início no passado não traz eventos encerrados
-        LocalDateTime agora = LocalDateTime.now();
-        LocalDateTime de = inicio == null || inicio.atStartOfDay().isBefore(agora)
-                ? agora
-                : inicio.atStartOfDay();
-        LocalDateTime ate = fim == null ? SEM_LIMITE : fim.plusDays(1).atStartOfDay();
+        LocalDate de = inicio == null || inicio.isBefore(LocalDate.now())
+                ? LocalDate.now()
+                : inicio;
+        LocalDate ate = fim == null ? LocalDate.of(9999, 12, 31) : fim;
 
         PageRequest pageable = PageRequest.of(
                 Math.max(0, pagina),
@@ -382,11 +374,11 @@ public class EventoService {
                 .orElseThrow(() ->
                         new IllegalArgumentException("Categoria não encontrada"));
 
-        evento.setTitulo(aparar(request.titulo()));
+        Evento dadosRecebidos = request.toEvento();
+        copiarDados(evento, dadosRecebidos);
+
         evento.setDescricao(aparar(request.descricao()));
         evento.setLocal(aparar(request.local()));
-        evento.setDataInicio(request.dataInicio());
-        evento.setDataFim(request.dataFim());
         evento.setModalidade(aparar(request.modalidade()));
         evento.setCapacidade(request.capacidade());
         evento.setCategoria(categoria);
@@ -394,7 +386,8 @@ public class EventoService {
 
         validarCamposEvento(evento);
 
-        if (!evento.getDataInicio().isAfter(LocalDateTime.now())) {
+        if (evento.getDataInicio() == null || evento.getHoraInicio() == null
+                || !evento.getDataInicio().atTime(evento.getHoraInicio()).isAfter(LocalDateTime.now())) {
             throw new IllegalArgumentException(
                     "A data de início do evento deve ser futura");
         }
@@ -472,9 +465,6 @@ public class EventoService {
                 .orElseThrow(() ->
                         new EventoNaoEncontradoException(
                                 "Evento não encontrado"));
-
-        if (evento.getStatus()
-                != Evento.StatusEvento.AJUSTES_SOLICITADOS) {
 
         if (!ehCaex(usuario) && !respondePeloEvento(evento, usuario)) {
             throw new ConflitoException(
@@ -725,12 +715,12 @@ public class EventoService {
         }
 
         // Limites das colunas da tabela "eventos"
-        validarTamanho(e.getTitulo(), 150, "O título");
-        validarTamanho(e.getDescricao(), 2000, "A descrição");
-        validarTamanho(e.getLocal(), 150, "O local");
-        validarTamanho(e.getModalidade(), 30, "A modalidade");
+        validarTamanho(evento.getTitulo(), 150, "O título");
+        validarTamanho(evento.getDescricao(), 2000, "A descrição");
+        validarTamanho(evento.getLocal(), 150, "O local");
+        validarTamanho(evento.getModalidade(), 30, "A modalidade");
 
-        if (e.getCategoria() == null || e.getCategoria().getId() == null) {
+        if (evento.getCategoria() == null || evento.getCategoria().getId() == null) {
             throw new IllegalArgumentException("A categoria é obrigatória");
         }
 
@@ -782,6 +772,11 @@ public class EventoService {
         destino.setProponenteMiniCurriculo(origem.getProponenteMiniCurriculo());
 
         destino.setTitulo(origem.getTitulo());
+        destino.setDescricao(origem.getDescricao());
+        destino.setLocal(origem.getLocal());
+        destino.setModalidade(origem.getModalidade());
+        destino.setCapacidade(origem.getCapacidade());
+        destino.setCategoria(origem.getCategoria());
         destino.setCaracterizacaoAtividade(origem.getCaracterizacaoAtividade());
         destino.setAreaTematica(origem.getAreaTematica());
         destino.setAbrangencia(origem.getAbrangencia());
@@ -844,10 +839,6 @@ public class EventoService {
         }
     }
 
-    private boolean isVazio(String s) {
-        return s == null || s.isBlank();
-    }
-
     // Eventos aprovados que acontecem em um dia
     @Transactional(readOnly = true)
     public List<DTOEventoResponse> listarPorData(LocalDate data) {
@@ -858,8 +849,8 @@ public class EventoService {
         }
 
         return paraResposta(eventoRepository.findByPeriodoAndStatus(
-                data.atStartOfDay(),
-                data.plusDays(1).atStartOfDay(),
+                data,
+                data,
                 Evento.StatusEvento.APROVADO
         ), null);
     }
@@ -879,8 +870,8 @@ public class EventoService {
         }
 
         return paraResposta(eventoRepository.findByPeriodoAndStatus(
-                inicio.atStartOfDay(),
-                fim.plusDays(1).atStartOfDay(),
+                inicio,
+                fim,
                 Evento.StatusEvento.APROVADO
         ), null);
     }

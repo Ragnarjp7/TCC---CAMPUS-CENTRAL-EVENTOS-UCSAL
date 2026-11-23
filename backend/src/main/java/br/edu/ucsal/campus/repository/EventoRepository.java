@@ -30,7 +30,7 @@ public interface EventoRepository extends JpaRepository<Evento, Long> {
             LEFT JOIN e.liga l
             WHERE e.status = :status
             AND e.dataFim >= :inicio
-            AND e.dataInicio < :fim
+            AND e.dataInicio <= :fim
             AND (:categoriaId IS NULL OR e.categoria.id = :categoriaId)
             AND (:modalidade = '' OR LOWER(e.modalidade) = :modalidade)
             AND (:busca = ''
@@ -44,7 +44,7 @@ public interface EventoRepository extends JpaRepository<Evento, Long> {
             LEFT JOIN e.liga l
             WHERE e.status = :status
             AND e.dataFim >= :inicio
-            AND e.dataInicio < :fim
+            AND e.dataInicio <= :fim
             AND (:categoriaId IS NULL OR e.categoria.id = :categoriaId)
             AND (:modalidade = '' OR LOWER(e.modalidade) = :modalidade)
             AND (:busca = ''
@@ -55,8 +55,8 @@ public interface EventoRepository extends JpaRepository<Evento, Long> {
             """)
     Page<Evento> buscarComFiltros(
             @Param("status") Evento.StatusEvento status,
-            @Param("inicio") LocalDateTime inicio,
-            @Param("fim") LocalDateTime fim,
+            @Param("inicio") LocalDate inicio,
+            @Param("fim") LocalDate fim,
             @Param("categoriaId") Long categoriaId,
             @Param("modalidade") String modalidade,
             @Param("busca") String busca,

@@ -3,18 +3,18 @@ package br.edu.ucsal.campus.dto;
 import br.edu.ucsal.campus.model.Evento;
 import br.edu.ucsal.campus.model.Usuario;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-// RF29 - Evento como o CAEX analisa: nome, descrição, data, horário, local
-// e quem está na direção (responsável e liga), além da proposta completa.
-// Só é devolvido ao CAEX/ADMIN e a quem responde pelo evento, nunca nas consultas públicas.
+// RF29 - Evento como o CAEX analisa.
+// Inclui informações do responsável, liga e proposta completa.
 public record DTOEventoAnaliseResponse(
         Long id,
         String titulo,
         String descricao,
         String local,
-        LocalDateTime dataInicio,
-        LocalDateTime dataFim,
+        LocalDate dataInicio,
+        LocalDate dataFim,
         String modalidade,
         Evento.StatusEvento status,
         Integer capacidade,
@@ -34,6 +34,7 @@ public record DTOEventoAnaliseResponse(
     public static DTOEventoAnaliseResponse de(Evento e) {
         boolean temLiga = e.getLiga() != null;
         boolean temCategoria = e.getCategoria() != null;
+
         Usuario responsavel = e.getCriadoPor();
 
         return new DTOEventoAnaliseResponse(
