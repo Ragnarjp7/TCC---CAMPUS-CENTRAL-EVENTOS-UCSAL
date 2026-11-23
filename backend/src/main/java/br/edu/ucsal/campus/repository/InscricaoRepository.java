@@ -1,6 +1,8 @@
 package br.edu.ucsal.campus.repository;
 
 import br.edu.ucsal.campus.model.Inscricao;
+import br.edu.ucsal.campus.model.Inscricao.StatusInscricao;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

@@ -68,6 +68,18 @@ public class SolicitacaoAjusteLigaService {
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Liga não encontrada"));
 
+        // Impede mais de uma solicitação não concluída
+        // para a mesma liga.
+        boolean existeSolicitacaoEmAndamento =
+                solicitacaoRepository.existsByLigaIdAndStatusNot(
+                        ligaId,
+                        StatusAjusteLiga.CONCLUIDA);
+
+        if (existeSolicitacaoEmAndamento) {
+            throw new ConflitoException(
+                    "Esta liga já possui uma solicitação de ajustes em andamento");
+        }
+
         Usuario solicitante = buscarUsuario(usuario);
 
         SolicitacaoAjusteLiga solicitacao =
@@ -88,7 +100,8 @@ public class SolicitacaoAjusteLigaService {
                 salva.getId(),
                 null,
                 "status=" + StatusAjusteLiga.PENDENTE,
-                "CAEX solicitou ajustes para a liga " + liga.getNome()
+                "Solicitação de ajustes criada para a liga "
+                        + liga.getNome()
         );
 
         return DTOSolicitacaoAjusteLigaResponse.fromEntity(salva);
@@ -102,7 +115,8 @@ public class SolicitacaoAjusteLigaService {
             UsuarioAutenticado usuario) {
 
         if (usuario == null) {
-            throw new AccessDeniedException("Usuário não autenticado");
+            throw new AccessDeniedException(
+                    "Usuário não autenticado");
         }
 
         if (resposta == null || resposta.isBlank()) {
@@ -155,7 +169,8 @@ public class SolicitacaoAjusteLigaService {
                 salva.getId(),
                 "status=" + statusAnterior,
                 "status=" + StatusAjusteLiga.RESPONDIDA,
-                "Responsável respondeu aos ajustes da liga " + liga.getNome()
+                "Responsável respondeu aos ajustes da liga "
+                        + liga.getNome()
         );
 
         return DTOSolicitacaoAjusteLigaResponse.fromEntity(salva);
@@ -192,7 +207,7 @@ public class SolicitacaoAjusteLigaService {
                 salva.getId(),
                 "status=" + statusAnterior,
                 "status=" + StatusAjusteLiga.CONCLUIDA,
-                "CAEX concluiu a análise dos ajustes da liga "
+                "Análise dos ajustes concluída para a liga "
                         + solicitacao.getLiga().getNome()
         );
 
@@ -206,14 +221,16 @@ public class SolicitacaoAjusteLigaService {
             UsuarioAutenticado usuario) {
 
         if (usuario == null) {
-            throw new AccessDeniedException("Usuário não autenticado");
+            throw new AccessDeniedException(
+                    "Usuário não autenticado");
         }
 
         Liga liga = ligaRepository.findById(ligaId)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Liga não encontrada"));
 
-        boolean administrador = possuiPermissaoAdministrativa(usuario);
+        boolean administrador =
+                possuiPermissaoAdministrativa(usuario);
 
         boolean responsavel = liga.getAlunoResponsavel() != null
                 && liga.getAlunoResponsavel().getUsuario() != null
@@ -247,7 +264,8 @@ public class SolicitacaoAjusteLigaService {
                 .toList();
     }
 
-    private SolicitacaoAjusteLiga buscarSolicitacao(Long solicitacaoId) {
+    private SolicitacaoAjusteLiga buscarSolicitacao(
+            Long solicitacaoId) {
 
         if (solicitacaoId == null) {
             throw new IllegalArgumentException(

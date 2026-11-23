@@ -27,7 +27,7 @@ public class InscricaoController {
         this.alunoService = alunoService;
     }
 
-    // O aluno logado se inscreve no evento
+    // O aluno autenticado realiza a própria inscrição.
     @PostMapping
     public ResponseEntity<DTOInscricaoResponse> inscrever(
             @PathVariable Long eventoId,
@@ -35,21 +35,33 @@ public class InscricaoController {
 
         Long alunoId = alunoService.buscarIdPorUsuario(usuario.id());
 
+        DTOInscricaoResponse resposta =
+                inscricaoService.inscrever(
+                        eventoId,
+                        alunoId,
+                        usuario
+                );
+
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(inscricaoService.inscrever(eventoId, alunoId));
+                .body(resposta);
     }
 
-    // Lista os inscritos do evento (CAEX ou ADMIN)
+    // Lista o histórico de inscrições do evento.
+    // A autorização é validada no serviço.
     @GetMapping
     public ResponseEntity<List<DTOInscricaoResponse>> listarPorEvento(
             @PathVariable Long eventoId,
             @AuthenticationPrincipal UsuarioAutenticado usuario) {
 
         return ResponseEntity.ok(
-                inscricaoService.listarPorEvento(eventoId, usuario));
+                inscricaoService.listarPorEvento(
+                        eventoId,
+                        usuario
+                )
+        );
     }
 
-    // O aluno logado cancela a própria inscrição
+    // O aluno autenticado cancela somente a própria inscrição.
     @DeleteMapping
     public ResponseEntity<Void> cancelar(
             @PathVariable Long eventoId,
@@ -57,7 +69,11 @@ public class InscricaoController {
 
         Long alunoId = alunoService.buscarIdPorUsuario(usuario.id());
 
-        inscricaoService.cancelar(eventoId, alunoId);
+        inscricaoService.cancelar(
+                eventoId,
+                alunoId,
+                usuario
+        );
 
         return ResponseEntity.noContent().build();
     }

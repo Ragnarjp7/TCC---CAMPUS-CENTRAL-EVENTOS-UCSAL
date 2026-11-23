@@ -334,14 +334,15 @@ public class LigaService {
                     "O aluno responsável não pertence ao curso desta liga");
         }
 
-        // Cria o cargo inicial da liga
+        // Cria o cargo inicial da liga com permissão para criar eventos
         Cargo cargo = new Cargo();
         cargo.setNome("Presidente");
         cargo.setLiga(liga);
         cargo.setPermissoes(new HashSet<>(
                 Set.of(
                         Permissao.GERENCIAR_MEMBROS,
-                        Permissao.GERENCIAR_CARGOS
+                        Permissao.GERENCIAR_CARGOS,
+                        Permissao.CRIAR_EVENTO
                 )
         ));
 
