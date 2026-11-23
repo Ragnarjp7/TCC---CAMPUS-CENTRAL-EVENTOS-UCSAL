@@ -96,8 +96,7 @@ const NotificationDetails = ({ notification }: { notification: AppNotification }
         <ActionButton
           testID={`notification-card-${id}-action`}
           label="Ver evento"
-          disabled={!event}
-          onPress={() => event && navigation.navigate("EventDetail", { event })}
+          onPress={() => navigation.navigate("EventDetail", { eventId: eventoId, event })}
         />
       )}
       {type === "CERTIFICADO" && (

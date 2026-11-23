@@ -20,4 +20,8 @@ export interface Post {
   body: string;
   imageUrl: string | null;
   visibility: PostVisibility;
+  /** Evento relacionado à publicação, quando houver. */
+  eventId?: number | null;
+  /** Grupo (liga, empresa júnior, atlética...) que publicou, quando houver. */
+  leagueId?: number | null;
 }

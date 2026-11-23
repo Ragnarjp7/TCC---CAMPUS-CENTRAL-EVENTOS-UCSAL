@@ -1,17 +1,21 @@
 import { useCallback } from "react";
 import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
+import { useAuth } from "@/features/auth/context/AuthContext";
 import { getErrorMessage } from "@/shared/api/errors";
 import { resolveViewState } from "@/shared/state/viewState";
 import { fetchEvents } from "../services/eventsService";
-import type { EventMode } from "../types";
+import type { EventFilters } from "../types";
 
-export function useEventsFeed(mode: EventMode | null) {
+export function useEventsFeed(filters: EventFilters) {
+  const { user, isRestoring } = useAuth();
   const query = useInfiniteQuery({
-    queryKey: ["events", { mode }],
-    queryFn: ({ pageParam }) => fetchEvents({ page: pageParam, mode }),
+    // o usuário entra na chave porque a resposta muda com o login (campo "inscrito")
+    queryKey: ["events", "feed", filters, user?.id ?? null],
+    queryFn: ({ pageParam }) => fetchEvents({ page: pageParam, ...filters }),
     initialPageParam: 0,
     getNextPageParam: (last) => (last.last ? undefined : last.number + 1),
     placeholderData: keepPreviousData,
+    enabled: !isRestoring,
     select: (data) => data.pages.flatMap((page) => page.content),
   });
 

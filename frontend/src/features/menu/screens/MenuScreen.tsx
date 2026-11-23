@@ -8,7 +8,10 @@ import {
   ArrowRight,
   Award,
   Bell,
+  CalendarCheck,
+  CalendarPlus,
   CircleHelp,
+  ClipboardCheck,
   FileText,
   Info,
   Lock,
@@ -19,7 +22,8 @@ import {
   X,
 } from "lucide-react-native";
 import { useAuth } from "@/features/auth/context/AuthContext";
-import type { Role } from "@/features/auth/types";
+import { can } from "@/features/auth/permissions";
+import { getRoleLabel } from "@/features/auth/roles";
 import type { RootScreenProps } from "@/navigation/types";
 import { colors } from "@/shared/theme/colors";
 
@@ -94,7 +98,21 @@ export default function MenuScreen({ navigation }: RootScreenProps<"Menu">) {
       ]
     : [accessibilityItem];
 
+  // RF27 (criar e acompanhar eventos) e RF29 (análise pela CAEX), conforme o perfil
+  const eventItems: MenuItem[] = [
+    ...(can(user, "event:review")
+      ? [{ key: "review", label: "Análise de eventos", icon: ClipboardCheck, onPress: () => navigation.navigate("ReviewQueue") }]
+      : []),
+    ...(can(user, "event:create")
+      ? [
+          { key: "create-event", label: "Criar evento", icon: CalendarPlus, onPress: () => navigation.navigate("CreateEvent") },
+          { key: "my-events", label: "Meus eventos", icon: CalendarCheck, onPress: () => navigation.navigate("MyEvents") },
+        ]
+      : []),
+  ];
+
   const sections: MenuSection[] = [
+    ...(eventItems.length > 0 ? [{ key: "events", title: "Eventos", items: eventItems }] : []),
     { key: "settings", title: "Configurações", items: settingsItems },
     {
       key: "more",
@@ -130,7 +148,7 @@ export default function MenuScreen({ navigation }: RootScreenProps<"Menu">) {
             </View>
             <View className="flex-1">
               <Text testID="menu-profile-name" className="text-lg font-bold text-white" numberOfLines={1}>{user.name}</Text>
-              <Text className="text-xs text-white/70">{ROLE_LABELS[user.role]}</Text>
+              <Text testID="menu-profile-role" className="text-xs text-white/70" numberOfLines={1}>{getRoleLabel(user)}</Text>
             </View>
             <CloseButton onPress={() => navigation.goBack()} />
           </Pressable>
@@ -179,9 +197,3 @@ export default function MenuScreen({ navigation }: RootScreenProps<"Menu">) {
     </SafeAreaView>
   );
 }
-
-const ROLE_LABELS: Record<Role, string> = {
-  STUDENT: "Estudante",
-  TEACHER: "Professor(a)",
-  ADMIN: "Administrador(a)",
-};
