@@ -11,6 +11,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.PrePersist;
 import java.time.LocalDateTime;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -74,7 +75,30 @@ public class Evento {
     @JoinColumn(name = "criado_por_id")
     private Usuario criadoPor;
 
+    // Formulário completo da proposta (JSON montado pelo app) para análise do CAEX.
+    // Não é exposto nas consultas públicas.
+    @JsonIgnore
+    @Column(columnDefinition = "TEXT")
+    private String proposta;
+
+    @Column(name = "criado_em")
+    private LocalDateTime criadoEm;
+
+    // Última vez que o evento foi enviado (ou reenviado) para análise
+    @Column(name = "enviado_em")
+    private LocalDateTime enviadoEm;
+
     public Evento() {}
+
+    @PrePersist
+    private void aoCriar() {
+        if (criadoEm == null) {
+            criadoEm = LocalDateTime.now();
+        }
+        if (enviadoEm == null) {
+            enviadoEm = criadoEm;
+        }
+    }
 
     public void setId(Long id) { this.id = id;}
 
@@ -128,4 +152,14 @@ public class Evento {
     public Usuario getCriadoPor() { return criadoPor; }
     
     public void setCriadoPor(Usuario criadoPor) { this.criadoPor = criadoPor; }
+
+    public String getProposta() { return proposta; }
+
+    public void setProposta(String proposta) { this.proposta = proposta; }
+
+    public LocalDateTime getCriadoEm() { return criadoEm; }
+
+    public LocalDateTime getEnviadoEm() { return enviadoEm; }
+
+    public void setEnviadoEm(LocalDateTime enviadoEm) { this.enviadoEm = enviadoEm; }
 }

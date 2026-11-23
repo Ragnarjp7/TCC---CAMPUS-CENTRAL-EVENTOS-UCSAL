@@ -64,6 +64,12 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/categorias", "/categorias/*").permitAll()
                 .requestMatchers(HttpMethod.POST, "/alunos").permitAll()
 
+                // RF27/RF29 - Acompanhamento e análise de eventos
+                // (antes de "/eventos/*", que é público)
+                .requestMatchers(HttpMethod.GET, "/eventos/meus").authenticated()
+                .requestMatchers(HttpMethod.GET, "/eventos/analise").hasAnyRole("CAEX", "ADMIN")
+                .requestMatchers(HttpMethod.GET, "/eventos/*/analise").authenticated()
+
                 // Consulta pública de eventos aprovados
                 .requestMatchers(HttpMethod.GET, "/eventos/publicos").permitAll()
                 .requestMatchers(HttpMethod.GET, "/eventos/*").permitAll()

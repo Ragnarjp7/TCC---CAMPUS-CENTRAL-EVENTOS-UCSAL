@@ -33,6 +33,7 @@ public class CargaInicial implements CommandLineRunner {
     private final LigaRepository ligaRepository;
     private final CargoRepository cargoRepository;
     private final MembroLigaRepository membroLigaRepository;
+    private final CategoriaRepository categoriaRepository;
     private final PasswordEncoder passwordEncoder;
     private final String senhaInicial;
 
@@ -44,6 +45,7 @@ public class CargaInicial implements CommandLineRunner {
             LigaRepository ligaRepository,
             CargoRepository cargoRepository,
             MembroLigaRepository membroLigaRepository,
+            CategoriaRepository categoriaRepository,
             PasswordEncoder passwordEncoder,
             @Value("${SEED_INITIAL_PASSWORD:}") String senhaInicial) {
 
@@ -54,6 +56,7 @@ public class CargaInicial implements CommandLineRunner {
         this.ligaRepository = ligaRepository;
         this.cargoRepository = cargoRepository;
         this.membroLigaRepository = membroLigaRepository;
+        this.categoriaRepository = categoriaRepository;
         this.passwordEncoder = passwordEncoder;
         this.senhaInicial = senhaInicial;
     }
@@ -134,27 +137,7 @@ public class CargaInicial implements CommandLineRunner {
         curso.setCoordenador(professor);
         cursoRepository.save(curso);
 
-        // Criação da Liga acadêmica
-        Liga liga = new Liga();
-
-        liga.setNome("Liga Acadêmica de Tecnologia");
-        liga.setDescricao("Liga de exemplo para testes");
-        liga.setStatus(StatusLiga.APROVADA);
-        liga.setCurso(curso);
-        liga.setOrientador(professor);
-
-        liga = ligaRepository.save(liga);
-
-        // Criação do cargo de presidente
-        Cargo presidente = new Cargo();
-
-        presidente.setNome("Presidente");
-        presidente.setLiga(liga);
-        presidente.setPermissoes(EnumSet.allOf(Permissao.class));
-
-        presidente = cargoRepository.save(presidente);
-
-        // Criação do aluno
+        // Criação do aluno (presidente e responsável pela liga)
         Aluno aluno = new Aluno();
 
         aluno.setUsuario(
@@ -169,6 +152,37 @@ public class CargaInicial implements CommandLineRunner {
         aluno.setCurso(curso);
 
         aluno = alunoRepository.save(aluno);
+
+        // Criação da Liga acadêmica
+        Liga liga = new Liga();
+
+        liga.setNome("Liga Acadêmica de Tecnologia");
+        liga.setDescricao("Liga de exemplo para testes");
+        liga.setStatus(StatusLiga.APROVADA);
+        liga.setCurso(curso);
+        liga.setOrientador(professor);
+        liga.setAlunoResponsavel(aluno);
+
+        liga = ligaRepository.save(liga);
+
+        // Criação do cargo de presidente
+        Cargo presidente = new Cargo();
+
+        presidente.setNome("Presidente");
+        presidente.setLiga(liga);
+        presidente.setPermissoes(EnumSet.allOf(Permissao.class));
+
+        presidente = cargoRepository.save(presidente);
+
+        // Categorias de evento (obrigatórias no cadastro de eventos)
+        if (categoriaRepository.count() == 0) {
+            categoriaRepository.save(new Categoria("Palestra", "Exposição sobre um tema"));
+            categoriaRepository.save(new Categoria("Workshop", "Atividade prática"));
+            categoriaRepository.save(new Categoria("Minicurso", "Curso de curta duração"));
+            categoriaRepository.save(new Categoria("Seminário", "Apresentações e debates"));
+            categoriaRepository.save(new Categoria("Esportivo", "Eventos de atléticas e competições"));
+            categoriaRepository.save(new Categoria("Cultural", "Eventos culturais e de integração"));
+        }
 
         // Vinculação do aluno à Liga
         MembroLiga membro = new MembroLiga();

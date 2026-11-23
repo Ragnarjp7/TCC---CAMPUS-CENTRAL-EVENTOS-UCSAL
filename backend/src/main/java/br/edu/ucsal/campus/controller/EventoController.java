@@ -1,8 +1,11 @@
 package br.edu.ucsal.campus.controller;
 
+import br.edu.ucsal.campus.dto.DTOEventoAnaliseResponse;
 import br.edu.ucsal.campus.dto.DTOEventoStatusResponse;
 import br.edu.ucsal.campus.dto.DTOStatusRequest;
 import br.edu.ucsal.campus.dto.DTOEventoRequest;
+import br.edu.ucsal.campus.dto.DTOEventoResponse;
+import br.edu.ucsal.campus.dto.DTOPagina;
 import br.edu.ucsal.campus.model.Evento;
 import br.edu.ucsal.campus.service.EventoService;
 import br.edu.ucsal.campus.security.UsuarioAutenticado;
@@ -35,13 +38,13 @@ public class EventoController {
 
     // Listar todos os eventos
     @GetMapping
-    public ResponseEntity<List<Evento>> listarTodos() {
+    public ResponseEntity<List<DTOEventoResponse>> listarTodos() {
         return ResponseEntity.ok(eventoService.listarTodos());
     }
 
     // Buscar evento por ID respeitando as regras de acesso
     @GetMapping("/{id}")
-    public ResponseEntity<Evento> buscarPorId(
+    public ResponseEntity<DTOEventoResponse> buscarPorId(
             @PathVariable Long id,
             @AuthenticationPrincipal UsuarioAutenticado usuario) {
 
@@ -52,7 +55,7 @@ public class EventoController {
 
     // Listar eventos por status
     @GetMapping("/status/{status}")
-    public ResponseEntity<List<Evento>> listarPorStatus(
+    public ResponseEntity<List<DTOEventoResponse>> listarPorStatus(
             @PathVariable String status) {
 
         return ResponseEntity.ok(
@@ -64,7 +67,7 @@ public class EventoController {
 
     // Listar eventos por categoria
     @GetMapping("/categoria/{categoriaId}")
-    public ResponseEntity<List<Evento>> listarPorCategoria(
+    public ResponseEntity<List<DTOEventoResponse>> listarPorCategoria(
             @PathVariable Long categoriaId) {
 
         return ResponseEntity.ok(
@@ -74,7 +77,7 @@ public class EventoController {
 
     // Buscar eventos por data
     @GetMapping("/data")
-    public ResponseEntity<List<Evento>> listarPorData(
+    public ResponseEntity<List<DTOEventoResponse>> listarPorData(
             @RequestParam
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
             LocalDate data) {
@@ -86,7 +89,7 @@ public class EventoController {
 
     // Buscar eventos por período
     @GetMapping("/periodo")
-    public ResponseEntity<List<Evento>> listarPorPeriodo(
+    public ResponseEntity<List<DTOEventoResponse>> listarPorPeriodo(
             @RequestParam
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
             LocalDate inicio,
@@ -100,40 +103,85 @@ public class EventoController {
         );
     }
 
-    // Visitante (sem login): somente eventos aprovados
+    // RF31/RF33 - Eventos disponíveis (aprovados e não encerrados), abertos a visitantes.
+    // Todos os filtros são opcionais e podem ser combinados:
+    // busca (título, descrição, local ou liga), categoriaId, modalidade e período (inicio/fim).
     @GetMapping("/publicos")
-    public ResponseEntity<List<Evento>> listarPublicos() {
+    public ResponseEntity<DTOPagina<DTOEventoResponse>> listarPublicos(
+            @RequestParam(required = false) String busca,
+            @RequestParam(required = false) Long categoriaId,
+            @RequestParam(required = false) String modalidade,
+
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate inicio,
+
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate fim,
+
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @AuthenticationPrincipal UsuarioAutenticado usuario) {
+
         return ResponseEntity.ok(
-                eventoService.listarPublicos()
+                eventoService.buscarDisponiveis(
+                        busca, categoriaId, modalidade, inicio, fim, page, size, usuario)
         );
     }
 
-    // Cadastrar evento pela liga
+    // RF27 - Cadastrar evento (presidência de liga, professor ou coordenador).
+    // O evento entra na fila de análise do CAEX.
     @PostMapping
-    public ResponseEntity<Evento> criar(
+    public ResponseEntity<DTOEventoAnaliseResponse> criar(
             @RequestBody DTOEventoRequest request,
             @AuthenticationPrincipal UsuarioAutenticado usuario) {
 
-        Evento novoEvento = eventoService.criar(request, usuario);
-
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(novoEvento);
+                .body(eventoService.criar(request, usuario));
     }
 
-    // Atualizar dados do evento
-    @PutMapping("/{id}")
-    public ResponseEntity<Evento> atualizarEvento(
+    // RF27 - Eventos pelos quais o usuário logado responde, com a situação na análise
+    @GetMapping("/meus")
+    public ResponseEntity<List<DTOEventoAnaliseResponse>> listarMeus(
+            @AuthenticationPrincipal UsuarioAutenticado usuario) {
+
+        return ResponseEntity.ok(eventoService.listarDoResponsavel(usuario));
+    }
+
+    // RF29 - Fila de análise do CAEX (padrão: AGUARDANDO_ANALISE)
+    @GetMapping("/analise")
+    public ResponseEntity<List<DTOEventoAnaliseResponse>> listarParaAnalise(
+            @RequestParam(required = false) String status) {
+
+        return ResponseEntity.ok(
+                eventoService.listarParaAnalise(
+                        status == null || status.isBlank()
+                                ? null
+                                : Evento.StatusEvento.valueOf(status.trim().toUpperCase())
+                )
+        );
+    }
+
+    // RF29 - Proposta completa do evento (CAEX/ADMIN ou quem responde pelo evento)
+    @GetMapping("/{id}/analise")
+    public ResponseEntity<DTOEventoAnaliseResponse> buscarParaAnalise(
             @PathVariable Long id,
-            @RequestBody Evento eventoAtualizado,
+            @AuthenticationPrincipal UsuarioAutenticado usuario) {
+
+        return ResponseEntity.ok(eventoService.buscarParaAnalise(id, usuario));
+    }
+
+    // Reenviar o evento ao CAEX após solicitação de ajustes
+    @PutMapping("/{id}")
+    public ResponseEntity<DTOEventoAnaliseResponse> atualizarEvento(
+            @PathVariable Long id,
+            @RequestBody DTOEventoRequest request,
             @AuthenticationPrincipal UsuarioAutenticado usuario) {
 
         return ResponseEntity.ok(
-                eventoService.atualizarEvento(
-                        id,
-                        eventoAtualizado,
-                        usuario
-                )
+                eventoService.atualizarEvento(id, request, usuario)
         );
     }
 
