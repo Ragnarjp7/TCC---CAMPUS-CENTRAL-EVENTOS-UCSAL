@@ -5,6 +5,8 @@ import br.edu.ucsal.campus.dto.DTOLoginRequest;
 import br.edu.ucsal.campus.dto.DTOLoginResponse;
 import br.edu.ucsal.campus.dto.DTOMeResponse;
 import br.edu.ucsal.campus.model.Usuario;
+import br.edu.ucsal.campus.model.enums.StatusMembro;
+import br.edu.ucsal.campus.repository.MembroLigaRepository;
 import br.edu.ucsal.campus.repository.UsuarioRepository;
 import br.edu.ucsal.campus.security.JwtService;
 import br.edu.ucsal.campus.exception.CredenciaisInvalidasException;
@@ -18,15 +20,18 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthService {
 
     private final UsuarioRepository usuarioRepository;
+    private final MembroLigaRepository membroLigaRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
     public AuthService(
             UsuarioRepository usuarioRepository,
+            MembroLigaRepository membroLigaRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService) {
 
         this.usuarioRepository = usuarioRepository;
+        this.membroLigaRepository = membroLigaRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
     }
@@ -51,7 +56,7 @@ public class AuthService {
                 jwtService.gerarToken(usuario),
                 "Bearer",
                 jwtService.getExpiracaoMinutos(),
-                DTOMeResponse.de(usuario));
+                montarPerfil(usuario));
     }
 
     @Transactional(readOnly = true)
@@ -61,6 +66,14 @@ public class AuthService {
                 .orElseThrow(() ->
                         new NaoEncontradoException("Usuário não encontrado"));
 
-        return DTOMeResponse.de(usuario);
+        return montarPerfil(usuario);
+    }
+
+    // Papéis globais + vínculos ativos em ligas (cargo e permissões)
+    private DTOMeResponse montarPerfil(Usuario usuario) {
+        return DTOMeResponse.de(
+                usuario,
+                membroLigaRepository.buscarVinculosDoUsuario(
+                        usuario.getId(), StatusMembro.ATIVO));
     }
 }

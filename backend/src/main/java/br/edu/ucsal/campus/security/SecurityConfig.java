@@ -30,19 +30,54 @@ public class SecurityConfig {
                 return new BCryptPasswordEncoder();
         }
 
-        @Bean
-        public SecurityFilterChain filterChain(HttpSecurity http,JwtService jwtService,UsuarioRepository usuarioRepository) throws Exception {
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
 
-                http.csrf(AbstractHttpConfigurer::disable).cors(Customizer.withDefaults()).sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS)).exceptionHandling(e -> e.authenticationEntryPoint((req, res, ex) -> escrever(res, 401,"Autenticação necessária ou token inválido")).accessDeniedHandler((req, res, ex) -> escrever(res, 403,"Você não tem permissão para esta ação"))).authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll().requestMatchers("/error").permitAll()
+    @Bean
+    public SecurityFilterChain filterChain(
+            HttpSecurity http,
+            JwtService jwtService,
+            UsuarioRepository usuarioRepository) throws Exception {
 
-        // Solicitação de participação em liga
-                .requestMatchers(HttpMethod.POST, "/ligas/*/solicitar-participacao").hasRole("ALUNO")
+        http
+            .csrf(AbstractHttpConfigurer::disable)
+            .cors(Customizer.withDefaults())
+            .sessionManagement(s ->
+                    s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .exceptionHandling(e -> e
+                .authenticationEntryPoint((req, res, ex) ->
+                        escrever(res, 401,
+                                "Autenticação necessária ou token inválido"))
+                .accessDeniedHandler((req, res, ex) ->
+                        escrever(res, 403,
+                                "Você não tem permissão para esta ação")))
+            .authorizeHttpRequests(auth -> auth
 
-        // Rotas públicas
-                .requestMatchers(HttpMethod.POST, "/auth/login").permitAll().requestMatchers(HttpMethod.GET, "/api/health", "/cursos").permitAll().requestMatchers(HttpMethod.GET, "/categorias", "/categorias/*").permitAll().requestMatchers(HttpMethod.POST, "/alunos").permitAll()
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers("/error").permitAll()
 
-        // Consulta pública de eventos aprovados
-                .requestMatchers(HttpMethod.GET, "/eventos/publicos").permitAll().requestMatchers(HttpMethod.GET, "/eventos/*").permitAll().requestMatchers(HttpMethod.GET, "/eventos/categoria/*").permitAll()
+                // Solicitação de participação em liga
+                .requestMatchers(HttpMethod.POST, "/ligas/*/solicitar-participacao")
+                    .hasRole("ALUNO")
+
+                // Rotas públicas
+                .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/health", "/cursos").permitAll()
+                .requestMatchers(HttpMethod.GET, "/categorias", "/categorias/*").permitAll()
+                .requestMatchers(HttpMethod.POST, "/alunos").permitAll()
+
+                // RF27/RF29 - Acompanhamento e análise de eventos
+                // (antes de "/eventos/*", que é público)
+                .requestMatchers(HttpMethod.GET, "/eventos/meus").authenticated()
+                .requestMatchers(HttpMethod.GET, "/eventos/analise").hasAnyRole("CAEX", "ADMIN")
+                .requestMatchers(HttpMethod.GET, "/eventos/*/analise").authenticated()
+
+                // Consulta pública de eventos aprovados
+                .requestMatchers(HttpMethod.GET, "/eventos/publicos").permitAll()
+                .requestMatchers(HttpMethod.GET, "/eventos/*").permitAll()
+                .requestMatchers(HttpMethod.GET, "/eventos/categoria/*").permitAll()
                 .requestMatchers(HttpMethod.GET, "/eventos/data").permitAll()
                 .requestMatchers(HttpMethod.GET, "/eventos/periodo").permitAll()
 

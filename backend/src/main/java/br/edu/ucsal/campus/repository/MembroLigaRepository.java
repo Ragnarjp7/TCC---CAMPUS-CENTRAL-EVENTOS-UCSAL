@@ -78,4 +78,16 @@ public interface MembroLigaRepository extends JpaRepository<MembroLiga, Long> {
             @Param("cargoId") Long cargoId,
             @Param("status") StatusMembro status,
             @Param("permissao") Permissao permissao);
+
+    // Vínculos do usuário (com liga e cargo) para montar o perfil logado
+    @EntityGraph(attributePaths = { "liga", "cargo" })
+    @Query("""
+            SELECT m FROM MembroLiga m
+            JOIN m.aluno a
+            WHERE a.usuario.id = :usuarioId
+            AND m.status = :status
+            """)
+    List<MembroLiga> buscarVinculosDoUsuario(
+            @Param("usuarioId") Long usuarioId,
+            @Param("status") StatusMembro status);
 }

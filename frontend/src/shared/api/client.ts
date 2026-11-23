@@ -40,8 +40,10 @@ async function handleUnauthorized(tokenUsed: string | null): Promise<void> {
 async function readErrorMessage(response: Response): Promise<string | undefined> {
   try {
     const data: unknown = await response.json();
-    if (data && typeof data === "object" && "message" in data && typeof data.message === "string") {
-      return data.message;
+    if (data && typeof data === "object") {
+      // Backend responde { "mensagem": "..." }; "message" fica como fallback
+      const msg = (data as Record<string, unknown>).mensagem ?? (data as Record<string, unknown>).message;
+      if (typeof msg === "string") return msg;
     }
   } catch {
     // corpo ausente ou não-JSON

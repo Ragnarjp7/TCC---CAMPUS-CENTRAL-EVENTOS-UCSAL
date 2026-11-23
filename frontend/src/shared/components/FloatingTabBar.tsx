@@ -3,7 +3,9 @@ import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import type { LucideIcon } from "lucide-react-native";
-import { Bell, Home, User } from "lucide-react-native";
+import { Bell, Home, Plus, User } from "lucide-react-native";
+import { useNavigation } from "@react-navigation/native";
+import { useCan } from "@/features/auth/hooks/useCan";
 
 const ICONS: Record<string, LucideIcon> = {
   Início: Home,
@@ -16,6 +18,8 @@ export const FLOATING_TAB_BAR_MARGIN = 15;
 
 export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const rootNavigation = useNavigation();
+  const canCreateEvent = useCan("event:create");
 
   return (
     <View
@@ -66,6 +70,20 @@ export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarP
               </Pressable>
             );
           })}
+          {canCreateEvent && (
+            <Pressable
+              testID="tab-bar-create-event"
+              accessibilityRole="button"
+              accessibilityLabel="Criar evento"
+              onPress={() => rootNavigation.navigate("CreateEvent")}
+              className="mx-1 h-[52px] flex-1 items-center justify-center gap-0.5 rounded-[18px] border border-transparent active:opacity-80"
+            >
+              <Plus size={21} color="rgba(255,255,255,0.6)" />
+              <Text className="text-[10px] font-medium text-white/60" numberOfLines={1}>
+                Criar
+              </Text>
+            </Pressable>
+          )}
         </View>
         </BlurView>
       </View>

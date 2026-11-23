@@ -11,11 +11,16 @@ interface ImgSlotProps {
 }
 
 /** Espaço reservado para imagem. Troque o filho por <Image className="h-full w-full" source={...} /> */
-export const ImgSlot = ({ className = "", children, testID }: ImgSlotProps) => (
-  <View testID={testID} className={`items-center justify-center overflow-hidden rounded-xl bg-slate-200 ${className}`}>
-    {children ?? <ImageIcon size={28} color={colors.slate400} strokeWidth={1.5} />}
-  </View>
-);
+export const ImgSlot = ({ className = "", children, testID }: ImgSlotProps) => {
+  // Só aplica o arredondamento padrão se o chamador não definir o seu (rounded-none, rounded-full...):
+  // duas classes rounded-* conflitam e a ordem na string não garante qual vence.
+  const radius = /(^|\s)rounded(-|\s|$)/.test(className) ? "" : "rounded-xl";
+  return (
+    <View testID={testID} className={`items-center justify-center overflow-hidden bg-slate-200 ${radius} ${className}`}>
+      {children ?? <ImageIcon size={28} color={colors.slate400} strokeWidth={1.5} />}
+    </View>
+  );
+};
 
 type LogoSize = "sm" | "md" | "xl";
 

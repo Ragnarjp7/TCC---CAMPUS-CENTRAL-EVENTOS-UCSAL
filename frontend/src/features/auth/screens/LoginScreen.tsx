@@ -10,10 +10,11 @@ import { useLoginForm } from "../hooks/useLoginForm";
 const underlined = "border-b border-slate-300 pb-2 pt-1 text-sm text-slate-800";
 
 export default function LoginScreen({ navigation }: RootScreenProps<"Login">) {
-  const form = useLoginForm({ onSuccess: () => navigation.reset({ index: 0, routes: [{ name: "Main" }] }) });
-  const loading = form.viewState === "loading";
   const goBack = () =>
     navigation.canGoBack() ? navigation.goBack() : navigation.reset({ index: 0, routes: [{ name: "Main" }] });
+  // Volta para onde o login foi pedido (ex.: "Entrar para se inscrever" no detalhe do evento)
+  const form = useLoginForm({ onSuccess: goBack });
+  const loading = form.viewState === "loading";
 
   return (
     <SafeAreaView testID="login-screen" className="flex-1 bg-brand">

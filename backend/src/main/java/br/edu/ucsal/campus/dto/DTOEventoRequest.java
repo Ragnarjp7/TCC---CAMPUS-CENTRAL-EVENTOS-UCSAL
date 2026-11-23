@@ -8,58 +8,16 @@ import java.time.LocalTime;
 import java.util.HashSet;
 import java.util.Set;
 
+// RF27 - Cadastro (e reenvio após ajustes) de evento.
+// ligaId: obrigatório para estudantes (presidência da liga); opcional para professores e coordenadores.
+// proposta: formulário completo da CAEX em JSON, guardado como veio para a análise (RF29).
 public record DTOEventoRequest(
 
         // Vínculos
         Long ligaId,
         Long categoriaId,
-
-        // Proponente
-        String proponenteNome,
-        String proponenteCpf,
-        String proponenteEmail,
-        String proponenteTelefone,
-        String proponenteLattes,
-        String proponenteMiniCurriculo,
-
-        // Informações do evento
-        String titulo,
-        String caracterizacaoAtividade,
-        Evento.AreaTematica areaTematica,
-        Evento.Abrangencia abrangencia,
-        Evento.TipoExtensao tipoExtensao,
-        String apresentacao,
-        Boolean publicarNoCampus,
-        String objetivoGeral,
-        String objetivosEspecificos,
-        String publicoAlvo,
-        Evento.TipoLocal tipoLocal,
-        String localDetalhe,
-        Evento.EspacoRealizacao espacoRealizacao,
-        String especificacaoEspaco,
-        Evento.FaixaVagas faixaVagas,
-        Set<Evento.RecursoAudiovisual> recursos,
-        String recursosOutro,
-        LocalDate dataInicio,
-        LocalDate dataFim,
-        LocalTime horaInicio,
-        LocalTime horaFim,
-        String diasHorarios,
-        String programacao,
-
-        // Certificação
-        Boolean emiteCertificado,
-
-        // Investimento
-        Evento.TipoInvestimento tipoInvestimento,
-        BigDecimal valor,
-
-        // Divulgação e observações
-        String linkPecasPublicitarias,
-        String observacoes,
-
-        // LGPD
-        Boolean autorizacaoLgpd
+        Long ligaId,
+        String proposta
 ) {
 
     // Converte o DTO em entidade (liga, categoria e criador são definidos no service)

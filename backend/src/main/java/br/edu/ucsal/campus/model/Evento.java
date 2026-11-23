@@ -11,8 +11,11 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.PrePersist;
+import java.time.LocalDateTime;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -134,10 +137,32 @@ public class Evento {
     @JoinColumn(name = "criado_por_id")
     private Usuario criadoPor;
 
-    // ===================== INFORMAÇÕES DO EVENTO =====================
+    // Formulário completo da proposta (JSON montado pelo app) para análise do CAEX.
+    // Não é exposto nas consultas públicas.
+    @JsonIgnore
+    @Column(columnDefinition = "TEXT")
+    private String proposta;
 
-    @Column(nullable = false, length = 150)
-    private String titulo;
+    @Column(name = "criado_em")
+    private LocalDateTime criadoEm;
+
+    // Última vez que o evento foi enviado (ou reenviado) para análise
+    @Column(name = "enviado_em")
+    private LocalDateTime enviadoEm;
+
+    public Evento() {}
+
+    @PrePersist
+    private void aoCriar() {
+        if (criadoEm == null) {
+            criadoEm = LocalDateTime.now();
+        }
+        if (enviadoEm == null) {
+            enviadoEm = criadoEm;
+        }
+    }
+
+    public void setId(Long id) { this.id = id;}
 
     @Column(name = "caracterizacao_atividade", nullable = false, length = 4000)
     private String caracterizacaoAtividade;
@@ -291,93 +316,13 @@ public class Evento {
     public Usuario getCriadoPor() { return criadoPor; }
     public void setCriadoPor(Usuario criadoPor) { this.criadoPor = criadoPor; }
 
-    public String getTitulo() { return titulo; }
-    public void setTitulo(String titulo) { this.titulo = titulo; }
+    public String getProposta() { return proposta; }
 
-    public String getCaracterizacaoAtividade() { return caracterizacaoAtividade; }
-    public void setCaracterizacaoAtividade(String caracterizacaoAtividade) { this.caracterizacaoAtividade = caracterizacaoAtividade; }
+    public void setProposta(String proposta) { this.proposta = proposta; }
 
-    public AreaTematica getAreaTematica() { return areaTematica; }
-    public void setAreaTematica(AreaTematica areaTematica) { this.areaTematica = areaTematica; }
+    public LocalDateTime getCriadoEm() { return criadoEm; }
 
-    public Abrangencia getAbrangencia() { return abrangencia; }
-    public void setAbrangencia(Abrangencia abrangencia) { this.abrangencia = abrangencia; }
+    public LocalDateTime getEnviadoEm() { return enviadoEm; }
 
-    public TipoExtensao getTipoExtensao() { return tipoExtensao; }
-    public void setTipoExtensao(TipoExtensao tipoExtensao) { this.tipoExtensao = tipoExtensao; }
-
-    public String getApresentacao() { return apresentacao; }
-    public void setApresentacao(String apresentacao) { this.apresentacao = apresentacao; }
-
-    public boolean isPublicarNoCampus() { return publicarNoCampus; }
-    public void setPublicarNoCampus(boolean publicarNoCampus) { this.publicarNoCampus = publicarNoCampus; }
-
-    public String getObjetivoGeral() { return objetivoGeral; }
-    public void setObjetivoGeral(String objetivoGeral) { this.objetivoGeral = objetivoGeral; }
-
-    public String getObjetivosEspecificos() { return objetivosEspecificos; }
-    public void setObjetivosEspecificos(String objetivosEspecificos) { this.objetivosEspecificos = objetivosEspecificos; }
-
-    public String getPublicoAlvo() { return publicoAlvo; }
-    public void setPublicoAlvo(String publicoAlvo) { this.publicoAlvo = publicoAlvo; }
-
-    public TipoLocal getTipoLocal() { return tipoLocal; }
-    public void setTipoLocal(TipoLocal tipoLocal) { this.tipoLocal = tipoLocal; }
-
-    public String getLocalDetalhe() { return localDetalhe; }
-    public void setLocalDetalhe(String localDetalhe) { this.localDetalhe = localDetalhe; }
-
-    public EspacoRealizacao getEspacoRealizacao() { return espacoRealizacao; }
-    public void setEspacoRealizacao(EspacoRealizacao espacoRealizacao) { this.espacoRealizacao = espacoRealizacao; }
-
-    public String getEspecificacaoEspaco() { return especificacaoEspaco; }
-    public void setEspecificacaoEspaco(String especificacaoEspaco) { this.especificacaoEspaco = especificacaoEspaco; }
-
-    public FaixaVagas getFaixaVagas() { return faixaVagas; }
-    public void setFaixaVagas(FaixaVagas faixaVagas) { this.faixaVagas = faixaVagas; }
-
-    public Set<RecursoAudiovisual> getRecursos() { return recursos; }
-    public void setRecursos(Set<RecursoAudiovisual> recursos) { this.recursos = recursos; }
-
-    public String getRecursosOutro() { return recursosOutro; }
-    public void setRecursosOutro(String recursosOutro) { this.recursosOutro = recursosOutro; }
-
-    public LocalDate getDataInicio() { return dataInicio; }
-    public void setDataInicio(LocalDate dataInicio) { this.dataInicio = dataInicio; }
-
-    public LocalDate getDataFim() { return dataFim; }
-    public void setDataFim(LocalDate dataFim) { this.dataFim = dataFim; }
-
-    public LocalTime getHoraInicio() { return horaInicio; }
-    public void setHoraInicio(LocalTime horaInicio) { this.horaInicio = horaInicio; }
-
-    public LocalTime getHoraFim() { return horaFim; }
-    public void setHoraFim(LocalTime horaFim) { this.horaFim = horaFim; }
-
-    public String getDiasHorarios() { return diasHorarios; }
-    public void setDiasHorarios(String diasHorarios) { this.diasHorarios = diasHorarios; }
-
-    public String getProgramacao() { return programacao; }
-    public void setProgramacao(String programacao) { this.programacao = programacao; }
-
-    public boolean isEmiteCertificado() { return emiteCertificado; }
-    public void setEmiteCertificado(boolean emiteCertificado) { this.emiteCertificado = emiteCertificado; }
-
-    public TipoInvestimento getTipoInvestimento() { return tipoInvestimento; }
-    public void setTipoInvestimento(TipoInvestimento tipoInvestimento) { this.tipoInvestimento = tipoInvestimento; }
-
-    public BigDecimal getValor() { return valor; }
-    public void setValor(BigDecimal valor) { this.valor = valor; }
-
-    public String getLinkPecasPublicitarias() { return linkPecasPublicitarias; }
-    public void setLinkPecasPublicitarias(String linkPecasPublicitarias) { this.linkPecasPublicitarias = linkPecasPublicitarias; }
-
-    public String getObservacoes() { return observacoes; }
-    public void setObservacoes(String observacoes) { this.observacoes = observacoes; }
-
-    public boolean isAutorizacaoLgpd() { return autorizacaoLgpd; }
-    public void setAutorizacaoLgpd(boolean autorizacaoLgpd) { this.autorizacaoLgpd = autorizacaoLgpd; }
-
-    public Categoria getCategoria() { return categoria; }
-    public void setCategoria(Categoria categoria) { this.categoria = categoria; }
+    public void setEnviadoEm(LocalDateTime enviadoEm) { this.enviadoEm = enviadoEm; }
 }
