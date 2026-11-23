@@ -74,12 +74,13 @@ public class InscricaoService {
                     "Só é possível se inscrever em eventos aprovados");
         }
 
-        if (evento.getDataFim() == null
-                || evento.getDataFim().isBefore(LocalDateTime.now())) {
+        if (evento.getDataFim() == null || evento.getHoraFim() == null
+        || evento.getDataFim().atTime(evento.getHoraFim())
+                .isBefore(LocalDateTime.now())) {
 
-            throw new ConflitoException(
-                    "Este evento já foi encerrado");
-        }
+         throw new ConflitoException(
+            "Este evento já foi encerrado");
+}
 
         boolean inscricaoAtiva = inscricaoRepository
                 .existsByAlunoIdAndEventoIdAndStatus(
@@ -97,8 +98,9 @@ public class InscricaoService {
                         eventoId,
                         StatusInscricao.ATIVA);
 
-        if (evento.getCapacidade() != null
-                && totalInscricoesAtivas >= evento.getCapacidade()) {
+        Integer limiteVagas = evento.getLimiteVagas();
+
+        if (limiteVagas != null && totalInscricoesAtivas >= limiteVagas) {
 
             throw new ConflitoException(
                     "O evento atingiu a capacidade máxima");

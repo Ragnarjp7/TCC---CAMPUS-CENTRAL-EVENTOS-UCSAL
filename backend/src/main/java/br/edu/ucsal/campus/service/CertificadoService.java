@@ -64,6 +64,9 @@ public class CertificadoService {
                 && evento.getStatus() != Evento.StatusEvento.ENCERRADO) {
             throw new ConflitoException(
                     "Os certificados só podem ser gerados para eventos aprovados ou encerrados");
+        }else if (!evento.isEmiteCertificado()) {
+           throw new ConflitoException(
+            "Este evento não está configurado para emissão de certificados");
         }
 
         List<Presenca> presencas = presencaRepository.buscarListaCompletaPorEvento(eventoId);
@@ -205,7 +208,7 @@ public class CertificadoService {
             Paragraph descricao = new Paragraph(
                     "participou do evento \"" + evento.getTitulo()
                             + "\", realizado em " + formatarData(evento)
-                            + ", no local " + evento.getLocal() + ".",
+                            + ", " + descreverLocal(evento) + ".",
                     texto);
             descricao.setAlignment(Element.ALIGN_CENTER);
             descricao.setSpacingAfter(50);
@@ -228,19 +231,33 @@ public class CertificadoService {
         }
     }
 
+    private String descreverLocal(Evento evento) {
+
+        if (evento.getTipoLocal() == null) {
+            return "";
+        }
+
+        return switch (evento.getTipoLocal()) {
+            case CAMPUS_PITUACU -> "no Campus Pituaçu da UCSal";
+            case ONLINE -> "de forma online";
+            case OUTRO -> evento.getLocalDetalhe() != null
+                    && !evento.getLocalDetalhe().isBlank()
+                    ? "no local " + evento.getLocalDetalhe()
+                    : "em local externo";
+        };
+    }
+
     private String formatarData(Evento evento) {
-
+        
         DateTimeFormatter formato = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-
-        if (evento.getDataInicio().toLocalDate()
-                .equals(evento.getDataFim().toLocalDate())) {
-
+        
+        if (evento.getDataInicio().equals(evento.getDataFim())) {
             return evento.getDataInicio().format(formato);
         }
 
         return evento.getDataInicio().format(formato)
-                + " até "
-                + evento.getDataFim().format(formato);
+            + " até "
+            + evento.getDataFim().format(formato);
     }
 
     private void enviarCertificado(Certificado certificado)
