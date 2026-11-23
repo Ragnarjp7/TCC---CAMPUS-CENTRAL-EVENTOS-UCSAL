@@ -23,6 +23,7 @@ import br.edu.ucsal.campus.security.UsuarioAutenticado;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.EnumSet;
@@ -137,10 +138,6 @@ public class EventoService {
             throw new IllegalArgumentException("A liga é obrigatória");
         }
 
-        if (request.categoriaId() == null) {
-            throw new IllegalArgumentException("A categoria é obrigatória");
-        }
-
         Liga liga = ligaRepository.findById(request.ligaId())
                 .orElseThrow(() ->
                         new IllegalArgumentException("Liga não encontrada"));
@@ -166,25 +163,17 @@ public class EventoService {
                     "Seu cargo não possui permissão para criar eventos");
         }
 
-        Categoria categoria = categoriaRepository
-                .findById(request.categoriaId())
-                .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Categoria não encontrada"));
-
         Usuario criador = buscarUsuario(usuario);
 
-        Evento evento = new Evento();
+        Evento evento = request.toEvento();
 
-        evento.setTitulo(request.titulo());
-        evento.setDescricao(request.descricao());
-        evento.setLocal(request.local());
-        evento.setDataInicio(request.dataInicio());
-        evento.setDataFim(request.dataFim());
-        evento.setModalidade(request.modalidade());
-        evento.setCapacidade(request.capacidade());
-        evento.setCategoria(categoria);
+        // Categoria é opcional
+        if (request.categoriaId() != null) {
+            evento.setCategoria(buscarCategoria(request.categoriaId()));
+        }
+
         evento.setLiga(liga);
+        evento.setEventoEntidadeEstudantil(true);
         evento.setCriadoPor(criador);
 
         validarCamposEvento(evento);
@@ -257,25 +246,14 @@ public class EventoService {
         String valoresAnteriores = descreverEvento(evento);
 
         // Atualiza somente os campos permitidos
-        evento.setTitulo(dados.getTitulo());
-        evento.setDescricao(dados.getDescricao());
-        evento.setLocal(dados.getLocal());
-        evento.setDataInicio(dados.getDataInicio());
-        evento.setDataFim(dados.getDataFim());
-        evento.setModalidade(dados.getModalidade());
-        evento.setCapacidade(dados.getCapacidade());
+        copiarDados(evento, dados);
 
         // A categoria atual é preservada se não for enviada
         if (dados.getCategoria() != null
                 && dados.getCategoria().getId() != null) {
 
-            Categoria categoria = categoriaRepository
-                    .findById(dados.getCategoria().getId())
-                    .orElseThrow(() ->
-                            new IllegalArgumentException(
-                                    "Categoria não encontrada"));
-
-            evento.setCategoria(categoria);
+            evento.setCategoria(
+                    buscarCategoria(dados.getCategoria().getId()));
         }
 
         // Liga, autoria e observação do CAEX não são alteradas
@@ -389,8 +367,7 @@ public class EventoService {
         }
 
         if (novoStatus == Evento.StatusEvento.APROVADO
-                && (evento.getDataFim() == null
-                || evento.getDataFim().isBefore(LocalDateTime.now()))) {
+                && eventoJaTerminou(evento)) {
 
             throw new IllegalArgumentException(
                     "Não é possível aprovar um evento que já terminou");
@@ -452,43 +429,166 @@ public class EventoService {
         return eventoAtualizado;
     }
 
+    // Verifica se o evento já terminou (data fim + hora fim)
+    private boolean eventoJaTerminou(Evento evento) {
+
+        if (evento.getDataFim() == null) {
+            return true;
+        }
+
+        LocalDateTime fim = evento.getHoraFim() != null
+                ? evento.getDataFim().atTime(evento.getHoraFim())
+                : evento.getDataFim().plusDays(1).atStartOfDay();
+
+        return fim.isBefore(LocalDateTime.now());
+    }
+
     // Valida os campos obrigatórios do evento
     private void validarCamposEvento(Evento evento) {
 
+        // Proponente
+        if (isVazio(evento.getProponenteNome())
+                || isVazio(evento.getProponenteCpf())
+                || isVazio(evento.getProponenteEmail())
+                || isVazio(evento.getProponenteTelefone())
+                || isVazio(evento.getProponenteMiniCurriculo())) {
+
+            throw new IllegalArgumentException(
+                    "Nome, CPF, e-mail, telefone e mini currículo do proponente são obrigatórios");
+        }
+
+        // Informações do evento
         if (isVazio(evento.getTitulo())
-                || isVazio(evento.getDescricao())
-                || isVazio(evento.getLocal())
-                || isVazio(evento.getModalidade())) {
+                || isVazio(evento.getCaracterizacaoAtividade())
+                || isVazio(evento.getApresentacao())
+                || isVazio(evento.getObjetivoGeral())
+                || isVazio(evento.getObjetivosEspecificos())
+                || isVazio(evento.getPublicoAlvo())
+                || isVazio(evento.getEspecificacaoEspaco())
+                || isVazio(evento.getDiasHorarios())
+                || isVazio(evento.getProgramacao())) {
 
             throw new IllegalArgumentException(
-                    "Título, descrição, local e modalidade são obrigatórios");
+                    "Título, caracterização, apresentação, objetivos, público-alvo, "
+                    + "especificação do espaço, dias e horários e programação são obrigatórios");
         }
 
-        if (evento.getCategoria() == null
-                || evento.getCategoria().getId() == null) {
+        if (evento.getTipoLocal() == null
+                || evento.getEspacoRealizacao() == null
+                || evento.getFaixaVagas() == null) {
 
             throw new IllegalArgumentException(
-                    "A categoria é obrigatória");
+                    "Local, espaço para realização e vagas são obrigatórios");
         }
 
+        if (evento.getTipoLocal() == Evento.TipoLocal.OUTRO
+                && isVazio(evento.getLocalDetalhe())) {
+
+            throw new IllegalArgumentException(
+                    "Informe o local do evento");
+        }
+
+        // Datas e horários
         if (evento.getDataInicio() == null
-                || evento.getDataFim() == null) {
+                || evento.getDataFim() == null
+                || evento.getHoraInicio() == null
+                || evento.getHoraFim() == null) {
 
             throw new IllegalArgumentException(
-                    "As datas de início e fim são obrigatórias");
+                    "As datas e os horários de início e término são obrigatórios");
         }
 
-        if (!evento.getDataFim().isAfter(evento.getDataInicio())) {
+        LocalDateTime inicio = evento.getDataInicio()
+                .atTime(evento.getHoraInicio());
+        LocalDateTime fim = evento.getDataFim()
+                .atTime(evento.getHoraFim());
+
+        if (!fim.isAfter(inicio)) {
             throw new IllegalArgumentException(
-                    "A data de fim deve ser posterior à data de início");
+                    "O término do evento deve ser posterior ao início");
         }
 
-        if (evento.getCapacidade() != null
-                && evento.getCapacidade() <= 0) {
-
+        // Investimento
+        if (evento.getTipoInvestimento() == null) {
             throw new IllegalArgumentException(
-                    "A capacidade deve ser maior que zero");
+                    "Informe se o evento é gratuito ou pago");
         }
+
+        if (evento.getTipoInvestimento() == Evento.TipoInvestimento.PAGO) {
+
+            if (evento.getValor() == null
+                    || evento.getValor().compareTo(BigDecimal.ZERO) <= 0) {
+
+                throw new IllegalArgumentException(
+                        "O valor deve ser maior que zero para eventos pagos");
+            }
+
+        } else {
+            // Evento gratuito não guarda valor
+            evento.setValor(null);
+        }
+
+        // LGPD
+        if (!evento.isAutorizacaoLgpd()) {
+            throw new IllegalArgumentException(
+                    "É necessário autorizar o tratamento dos dados (LGPD)");
+        }
+    }
+
+    // Copia os campos editáveis do formulário para o evento existente
+    private void copiarDados(Evento destino, Evento origem) {
+
+        destino.setProponenteNome(origem.getProponenteNome());
+        destino.setProponenteCpf(origem.getProponenteCpf());
+        destino.setProponenteEmail(origem.getProponenteEmail());
+        destino.setProponenteTelefone(origem.getProponenteTelefone());
+        destino.setProponenteLattes(origem.getProponenteLattes());
+        destino.setProponenteMiniCurriculo(origem.getProponenteMiniCurriculo());
+
+        destino.setTitulo(origem.getTitulo());
+        destino.setCaracterizacaoAtividade(origem.getCaracterizacaoAtividade());
+        destino.setAreaTematica(origem.getAreaTematica());
+        destino.setAbrangencia(origem.getAbrangencia());
+        destino.setTipoExtensao(origem.getTipoExtensao());
+        destino.setApresentacao(origem.getApresentacao());
+        destino.setPublicarNoCampus(origem.isPublicarNoCampus());
+        destino.setObjetivoGeral(origem.getObjetivoGeral());
+        destino.setObjetivosEspecificos(origem.getObjetivosEspecificos());
+        destino.setPublicoAlvo(origem.getPublicoAlvo());
+        destino.setTipoLocal(origem.getTipoLocal());
+        destino.setLocalDetalhe(origem.getLocalDetalhe());
+        destino.setEspacoRealizacao(origem.getEspacoRealizacao());
+        destino.setEspecificacaoEspaco(origem.getEspecificacaoEspaco());
+        destino.setFaixaVagas(origem.getFaixaVagas());
+
+        destino.getRecursos().clear();
+        if (origem.getRecursos() != null) {
+            destino.getRecursos().addAll(origem.getRecursos());
+        }
+        destino.setRecursosOutro(origem.getRecursosOutro());
+
+        destino.setDataInicio(origem.getDataInicio());
+        destino.setDataFim(origem.getDataFim());
+        destino.setHoraInicio(origem.getHoraInicio());
+        destino.setHoraFim(origem.getHoraFim());
+        destino.setDiasHorarios(origem.getDiasHorarios());
+        destino.setProgramacao(origem.getProgramacao());
+
+        destino.setEmiteCertificado(origem.isEmiteCertificado());
+
+        destino.setTipoInvestimento(origem.getTipoInvestimento());
+        destino.setValor(origem.getValor());
+
+        destino.setLinkPecasPublicitarias(origem.getLinkPecasPublicitarias());
+        destino.setObservacoes(origem.getObservacoes());
+        destino.setAutorizacaoLgpd(origem.isAutorizacaoLgpd());
+    }
+
+    private Categoria buscarCategoria(Long categoriaId) {
+        return categoriaRepository.findById(categoriaId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Categoria não encontrada"));
     }
 
     private boolean isVazio(String valor) {
@@ -510,13 +610,19 @@ public class EventoService {
 
     private String descreverEvento(Evento evento) {
         return "titulo=" + evento.getTitulo()
-                + "; descricao=" + evento.getDescricao()
-                + "; local=" + evento.getLocal()
+                + "; apresentacao=" + evento.getApresentacao()
+                + "; tipoLocal=" + evento.getTipoLocal()
+                + "; localDetalhe=" + evento.getLocalDetalhe()
                 + "; dataInicio=" + evento.getDataInicio()
                 + "; dataFim=" + evento.getDataFim()
-                + "; modalidade=" + evento.getModalidade()
-                + "; capacidade=" + evento.getCapacidade()
-                + "; categoriaId=" + evento.getCategoria().getId();
+                + "; horaInicio=" + evento.getHoraInicio()
+                + "; horaFim=" + evento.getHoraFim()
+                + "; faixaVagas=" + evento.getFaixaVagas()
+                + "; tipoInvestimento=" + evento.getTipoInvestimento()
+                + "; valor=" + evento.getValor()
+                + "; categoriaId="
+                + (evento.getCategoria() != null
+                        ? evento.getCategoria().getId() : null);
     }
 
     // Eventos aprovados que acontecem em um dia
@@ -529,8 +635,8 @@ public class EventoService {
         }
 
         return eventoRepository.findByPeriodoAndStatus(
-                data.atStartOfDay(),
-                data.plusDays(1).atStartOfDay(),
+                data,
+                data,
                 Evento.StatusEvento.APROVADO
         );
     }
@@ -552,8 +658,8 @@ public class EventoService {
         }
 
         return eventoRepository.findByPeriodoAndStatus(
-                inicio.atStartOfDay(),
-                fim.plusDays(1).atStartOfDay(),
+                inicio,
+                fim,
                 Evento.StatusEvento.APROVADO
         );
     }

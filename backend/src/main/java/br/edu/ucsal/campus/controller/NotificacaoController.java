@@ -1,7 +1,6 @@
 package br.edu.ucsal.campus.controller;
 
 import br.edu.ucsal.campus.dto.DTONotificacaoResponse;
-import br.edu.ucsal.campus.model.Notificacao;
 import br.edu.ucsal.campus.security.UsuarioAutenticado;
 import br.edu.ucsal.campus.service.NotificacaoService;
 
