@@ -14,40 +14,36 @@ public interface PresencaRepository
 
     boolean existsByEventoIdAndInscricaoId(
             Long eventoId,
-            Long inscricaoId
-    );
+            Long inscricaoId);
 
     boolean existsByEventoIdAndUsuarioId(
             Long eventoId,
-            Long usuarioId
-    );
+            Long usuarioId);
 
     boolean existsByEventoIdAndEmailParticipanteExternoIgnoreCase(
             Long eventoId,
-            String email
-    );
+            String email);
 
     List<Presenca> findByEventoIdOrderByDataConfirmacaoAsc(
-            Long eventoId
-    );
+            Long eventoId);
 
     Optional<Presenca> findByIdAndEventoId(
             Long presencaId,
-            Long eventoId
-    );
+            Long eventoId);
 
     long countByEventoId(Long eventoId);
 
     @Query("""
-        SELECT p
-        FROM Presenca p
-        LEFT JOIN FETCH p.usuario
-        LEFT JOIN FETCH p.inscricao i
-        LEFT JOIN FETCH i.aluno a
-        WHERE p.evento.id = :eventoId
-        ORDER BY p.dataConfirmacao ASC
-        """)
+            SELECT p
+            FROM Presenca p
+            JOIN FETCH p.evento e
+            LEFT JOIN FETCH p.usuario u
+            LEFT JOIN FETCH p.inscricao i
+            LEFT JOIN FETCH i.aluno a
+            LEFT JOIN FETCH a.usuario
+            WHERE e.id = :eventoId
+            ORDER BY p.dataConfirmacao ASC
+            """)
     List<Presenca> buscarListaCompletaPorEvento(
-            @Param("eventoId") Long eventoId
-    );
+            @Param("eventoId") Long eventoId);
 }
