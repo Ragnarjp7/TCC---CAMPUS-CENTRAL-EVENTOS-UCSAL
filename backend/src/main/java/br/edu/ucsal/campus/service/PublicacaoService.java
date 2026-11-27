@@ -355,6 +355,7 @@ public class PublicacaoService {
             UsuarioAutenticado usuario) {
 
         if (publicacao.getTipoAutor() == TipoAutorPublicacao.LIGA) {
+
             if (publicacao.getLigaAutora() == null
                     || request.ligaId() == null
                     || !publicacao.getLigaAutora().getId()
@@ -363,8 +364,22 @@ public class PublicacaoService {
                         "A liga autora da publicação não pode ser alterada");
             }
 
-            validarPublicacaoLiga(request.ligaId(), usuario);
-            return;
+            boolean caex = usuario.papeis().contains(Papel.CAEX);
+            boolean coordenador = usuario.papeis().contains(Papel.COORDENADOR);
+            boolean autorOriginal = publicacao.getAutor() != null
+                    && publicacao.getAutor().getId().equals(usuario.id());
+
+            if (caex || coordenador) {
+                return;
+            }
+
+            if (autorOriginal) {
+                validarPublicacaoLiga(request.ligaId(), usuario);
+                return;
+            }
+
+            throw new AccessDeniedException(
+                    "Você não tem permissão para editar esta publicação de Liga");
         }
 
         if (request.ligaId() != null) {
@@ -450,8 +465,7 @@ public class PublicacaoService {
 
                 validarPublicacaoLiga(
                         publicacao.getLigaAutora().getId(),
-                        usuario
-                );
+                        usuario);
             }
 
             return true;
@@ -462,8 +476,7 @@ public class PublicacaoService {
         if (usuario.papeis().contains(Papel.COORDENADOR)) {
             Long cursoId = buscarCursoDoCoordenador(usuario.id());
 
-            return publicacao.getPublico()
-                    == PublicoPublicacao.CURSO_ESPECIFICO
+            return publicacao.getPublico() == PublicoPublicacao.CURSO_ESPECIFICO
                     && publicacao.getCursoDestino() != null
                     && publicacao.getCursoDestino().getId().equals(cursoId);
         }
@@ -483,20 +496,25 @@ public class PublicacaoService {
             return true;
         }
 
+        if (publicacao.getCursoDestino() == null) {
+            return false;
+        }
+
         if (usuario.papeis().contains(Papel.ALUNO)) {
             return alunoRepository.findByUsuarioId(usuario.id())
-                    .map(aluno -> aluno.getCurso().getId()
-                            .equals(publicacao.getCursoDestino().getId()))
+                    .map(aluno -> aluno.getCurso() != null
+                            && aluno.getCurso().getId()
+                                    .equals(publicacao.getCursoDestino().getId()))
                     .orElse(false);
         }
 
         if (usuario.papeis().contains(Papel.COORDENADOR)) {
-            return publicacao.getCursoDestino() != null
-                    && publicacao.getCursoDestino().getId()
-                            .equals(buscarCursoDoCoordenador(usuario.id()));
+            return publicacao.getCursoDestino().getId()
+                    .equals(buscarCursoDoCoordenador(usuario.id()));
         }
 
-        return publicacao.getAutor().getId().equals(usuario.id());
+        return publicacao.getAutor() != null
+                && publicacao.getAutor().getId().equals(usuario.id());
     }
 
     private void validarAlcanceDoCoordenador(

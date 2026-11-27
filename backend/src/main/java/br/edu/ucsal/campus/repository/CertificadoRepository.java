@@ -20,4 +20,7 @@ public interface CertificadoRepository
             Long usuarioId);
 
     List<Certificado> findByPresencaEventoId(Long eventoId);
+
+    List<Certificado> findByPresencaEventoIdAndEmailEnviadoFalse(
+            Long eventoId);
 }

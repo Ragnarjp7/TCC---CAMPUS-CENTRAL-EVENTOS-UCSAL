@@ -1,26 +1,31 @@
 package br.edu.ucsal.campus.service;
 
+import br.edu.ucsal.campus.dto.DTOPresencaResponse;
 import br.edu.ucsal.campus.exception.ConflitoException;
 import br.edu.ucsal.campus.model.Aluno;
 import br.edu.ucsal.campus.model.CodigoPresenca;
 import br.edu.ucsal.campus.model.Evento;
 import br.edu.ucsal.campus.model.Inscricao;
+import br.edu.ucsal.campus.model.MembroLiga;
 import br.edu.ucsal.campus.model.Presenca;
 import br.edu.ucsal.campus.model.enums.Papel;
+import br.edu.ucsal.campus.model.enums.Permissao;
+import br.edu.ucsal.campus.model.enums.StatusMembro;
 import br.edu.ucsal.campus.repository.AlunoRepository;
 import br.edu.ucsal.campus.repository.CodigoPresencaRepository;
+import br.edu.ucsal.campus.repository.EventoRepository;
 import br.edu.ucsal.campus.repository.InscricaoRepository;
+import br.edu.ucsal.campus.repository.MembroLigaRepository;
 import br.edu.ucsal.campus.repository.PresencaRepository;
 import br.edu.ucsal.campus.security.UsuarioAutenticado;
-import br.edu.ucsal.campus.dto.DTOPresencaResponse;
-import br.edu.ucsal.campus.repository.EventoRepository;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Locale;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 public class PresencaService {
@@ -30,23 +35,24 @@ public class PresencaService {
     private final InscricaoRepository inscricaoRepository;
     private final AlunoRepository alunoRepository;
     private final EventoRepository eventoRepository;
+    private final MembroLigaRepository membroLigaRepository;
 
     public PresencaService(
             EventoRepository eventoRepository,
             CodigoPresencaRepository codigoPresencaRepository,
             PresencaRepository presencaRepository,
             InscricaoRepository inscricaoRepository,
-            AlunoRepository alunoRepository) {
+            AlunoRepository alunoRepository,
+            MembroLigaRepository membroLigaRepository) {
 
         this.eventoRepository = eventoRepository;
         this.codigoPresencaRepository = codigoPresencaRepository;
         this.presencaRepository = presencaRepository;
         this.inscricaoRepository = inscricaoRepository;
         this.alunoRepository = alunoRepository;
+        this.membroLigaRepository = membroLigaRepository;
     }
 
-    // Confirma presença de um aluno autenticado.
-    // Exige inscrição ativa no evento.
     @Transactional
     public Presenca confirmarPresencaAluno(
             String token,
@@ -59,7 +65,6 @@ public class PresencaService {
 
         if (usuario.papeis() == null
                 || !usuario.papeis().contains(Papel.ALUNO)) {
-
             throw new ConflitoException(
                     "Somente alunos podem confirmar presença por esta modalidade");
         }
@@ -82,32 +87,21 @@ public class PresencaService {
                         "Você precisa ter uma inscrição ativa neste evento para confirmar presença"));
 
         if (presencaRepository.existsByEventoIdAndInscricaoId(
-                evento.getId(),
-                inscricao.getId())) {
-
-            throw new ConflitoException(
-                    "Sua presença neste evento já foi confirmada");
-        }
-
-        if (presencaRepository.existsByEventoIdAndUsuarioId(
-                evento.getId(),
-                usuario.id())) {
-
+                evento.getId(), inscricao.getId())
+                || presencaRepository.existsByEventoIdAndUsuarioId(
+                        evento.getId(), usuario.id())) {
             throw new ConflitoException(
                     "Sua presença neste evento já foi confirmada");
         }
 
         Presenca presenca = new Presenca();
-
         presenca.setEvento(evento);
         presenca.setInscricao(inscricao);
         presenca.setUsuario(aluno.getUsuario());
 
-        return presencaRepository.save(presenca);
+        return salvarPresenca(presenca);
     }
 
-    // Confirma presença de um participante externo.
-    // Não exige conta ou inscrição.
     @Transactional
     public Presenca confirmarPresencaExterno(
             String token,
@@ -115,17 +109,17 @@ public class PresencaService {
             String email) {
 
         if (nome == null || nome.isBlank()) {
-            throw new IllegalArgumentException(
+            throw new ConflitoException(
                     "O nome do participante é obrigatório");
         }
 
         if (nome.trim().length() > 150) {
-            throw new IllegalArgumentException(
+            throw new ConflitoException(
                     "O nome deve ter no máximo 150 caracteres");
         }
 
         if (email == null || email.isBlank()) {
-            throw new IllegalArgumentException(
+            throw new ConflitoException(
                     "O e-mail do participante é obrigatório");
         }
 
@@ -135,8 +129,7 @@ public class PresencaService {
         if (emailNormalizado.length() > 150
                 || !emailNormalizado.matches(
                         "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) {
-
-            throw new IllegalArgumentException(
+            throw new ConflitoException(
                     "Informe um endereço de e-mail válido");
         }
 
@@ -147,27 +140,31 @@ public class PresencaService {
 
         if (presencaRepository
                 .existsByEventoIdAndEmailParticipanteExternoIgnoreCase(
-                        evento.getId(),
-                        emailNormalizado)) {
-
+                        evento.getId(), emailNormalizado)) {
             throw new ConflitoException(
                     "Já existe uma presença confirmada com este e-mail neste evento");
         }
 
         Presenca presenca = new Presenca();
-
         presenca.setEvento(evento);
         presenca.setNomeParticipanteExterno(nomeNormalizado);
         presenca.setEmailParticipanteExterno(emailNormalizado);
 
-        return presencaRepository.save(presenca);
+        return salvarPresenca(presenca);
     }
 
-    // Localiza somente códigos ativos.
-    private CodigoPresenca buscarCodigoAtivo(String token) {
+    private Presenca salvarPresenca(Presenca presenca) {
+        try {
+            return presencaRepository.saveAndFlush(presenca);
+        } catch (DataIntegrityViolationException e) {
+            throw new ConflitoException(
+                    "Esta presença já foi confirmada anteriormente");
+        }
+    }
 
+    private CodigoPresenca buscarCodigoAtivo(String token) {
         if (token == null || token.isBlank()) {
-            throw new IllegalArgumentException(
+            throw new ConflitoException(
                     "O token do QR Code é obrigatório");
         }
 
@@ -177,45 +174,34 @@ public class PresencaService {
                         "QR Code inválido ou inativo"));
     }
 
-    // Confere se o evento está aprovado e dentro do período.
     private void validarPeriodoEvento(Evento evento) {
-
         if (evento.getStatus() != Evento.StatusEvento.APROVADO) {
-                throw new ConflitoException(
-                        "O evento não está aprovado para receber confirmações de presença");
+            throw new ConflitoException(
+                    "O evento não está aprovado para receber confirmações de presença");
         }
 
         if (evento.getDataInicio() == null
                 || evento.getDataFim() == null
                 || evento.getHoraInicio() == null
                 || evento.getHoraFim() == null) {
-
-                throw new ConflitoException(
-                        "O evento não possui um período válido");
+            throw new ConflitoException(
+                    "O evento não possui um período válido");
         }
 
         LocalDateTime agora = LocalDateTime.now();
+        LocalDateTime inicio = LocalDateTime.of(
+                evento.getDataInicio(), evento.getHoraInicio());
+        LocalDateTime fim = LocalDateTime.of(
+                evento.getDataFim(), evento.getHoraFim());
 
-        // Combina a data e o horário de início.
-        LocalDateTime inicioEvento = LocalDateTime.of(
-                evento.getDataInicio(),
-                evento.getHoraInicio()
-        );
-
-        // Combina a data e o horário de término.
-        LocalDateTime fimEvento = LocalDateTime.of(
-                evento.getDataFim(),
-                evento.getHoraFim()
-        );
-
-        if (agora.isBefore(inicioEvento)) {
-                throw new ConflitoException(
-                        "A confirmação de presença ainda não está disponível");
+        if (agora.isBefore(inicio)) {
+            throw new ConflitoException(
+                    "A confirmação de presença ainda não está disponível");
         }
 
-        if (agora.isAfter(fimEvento)) {
-                throw new ConflitoException(
-                        "O período de confirmação de presença foi encerrado");
+        if (agora.isAfter(fim)) {
+            throw new ConflitoException(
+                    "O período de confirmação de presença foi encerrado");
         }
     }
 
@@ -233,14 +219,36 @@ public class PresencaService {
                 .orElseThrow(() -> new ConflitoException(
                         "Evento não encontrado"));
 
-        boolean possuiAcessoAdministrativo = usuario.papeis() != null
+        boolean administrativo = usuario.papeis() != null
                 && (usuario.papeis().contains(Papel.CAEX)
-                        || usuario.papeis().contains(Papel.ADMIN));
+                || usuario.papeis().contains(Papel.ADMIN));
 
-        boolean eCriadorDoEvento = evento.getCriadoPor() != null
+        boolean criador = evento.getCriadoPor() != null
                 && evento.getCriadoPor().getId().equals(usuario.id());
 
-        if (!possuiAcessoAdministrativo && !eCriadorDoEvento) {
+        boolean responsavelLiga = false;
+
+        if (evento.getLiga() != null) {
+            Aluno aluno = alunoRepository.findByUsuarioId(usuario.id())
+                    .orElse(null);
+
+            if (aluno != null) {
+                MembroLiga membro = membroLigaRepository
+                        .buscarMembroAtivo(
+                                usuario.id(),
+                                evento.getLiga().getId(),
+                                StatusMembro.ATIVO)
+                        .orElse(null);
+
+                responsavelLiga = membro != null
+                        && membro.getCargo() != null
+                        && membro.getCargo().getPermissoes() != null
+                        && membro.getCargo().getPermissoes()
+                                .contains(Permissao.REGISTRAR_PRESENCA);
+            }
+        }
+
+        if (!administrativo && !criador && !responsavelLiga) {
             throw new ConflitoException(
                     "Você não tem permissão para consultar as presenças deste evento");
         }

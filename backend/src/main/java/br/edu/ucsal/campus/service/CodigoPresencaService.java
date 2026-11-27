@@ -59,7 +59,7 @@ public class CodigoPresencaService {
                                 "Evento não encontrado"));
 
         validarPermissao(evento, usuario);
-        validarPeriodoEvento(evento);
+        validarEventoParaGerarCodigo(evento);
 
         CodigoPresenca codigo = codigoRepository
                 .findByEventoId(eventoId)
@@ -70,54 +70,50 @@ public class CodigoPresencaService {
         codigo.setAtivo(true);
         codigo.setDataCriacao(LocalDateTime.now());
 
-        CodigoPresenca codigoSalvo = codigoRepository.save(codigo);
+        CodigoPresenca codigoSalvo =
+                codigoRepository.save(codigo);
 
-        String imagemQrCode = gerarImagemQrCode(
-                codigoSalvo.getToken());
+        String imagemQrCode =
+                gerarImagemQrCode(codigoSalvo.getToken());
 
         return DTOCodigoPresencaResponse.de(
                 codigoSalvo,
                 imagemQrCode);
     }
 
-    private void validarPeriodoEvento(Evento evento) {
+    private void validarEventoParaGerarCodigo(Evento evento) {
 
-    LocalDateTime agora = LocalDateTime.now();
+        if (evento.getStatus() != Evento.StatusEvento.APROVADO) {
+            throw new ConflitoException(
+                    "O evento precisa estar aprovado para gerar o QR Code");
+        }
 
-    if (evento.getStatus() != Evento.StatusEvento.APROVADO) {
-        throw new ConflitoException(
-                "O evento precisa estar aprovado para gerar o QR Code");
+        if (evento.getDataInicio() == null
+                || evento.getDataFim() == null
+                || evento.getHoraInicio() == null
+                || evento.getHoraFim() == null) {
+
+            throw new ConflitoException(
+                    "O evento não possui período definido");
+        }
+
+        LocalDateTime inicio = evento.getDataInicio()
+                .atTime(evento.getHoraInicio());
+
+        LocalDateTime fim = evento.getDataFim()
+                .atTime(evento.getHoraFim());
+
+        if (fim.isBefore(inicio)) {
+            throw new ConflitoException(
+                    "O período do evento está inválido");
+        }
     }
-
-    if (evento.getDataInicio() == null
-            || evento.getDataFim() == null
-            || evento.getHoraInicio() == null
-            || evento.getHoraFim() == null) {
-        throw new ConflitoException(
-                "O evento não possui período definido");
-    }
-
-    LocalDateTime inicio = evento.getDataInicio()
-            .atTime(evento.getHoraInicio());
-    LocalDateTime fim = evento.getDataFim()
-            .atTime(evento.getHoraFim());
-
-    if (agora.isBefore(inicio)) {
-        throw new ConflitoException(
-                "O QR Code só pode ser gerado no período do evento");
-    }
-
-    if (agora.isAfter(fim)) {
-        throw new ConflitoException(
-                "O período do evento já foi encerrado");
-    }
-}
 
     private void validarPermissao(
             Evento evento,
             UsuarioAutenticado usuario) {
 
-        if (usuario == null) {
+        if (usuario == null || usuario.id() == null) {
             throw new ConflitoException(
                     "É necessário estar autenticado");
         }
@@ -125,6 +121,11 @@ public class CodigoPresencaService {
         if (usuario.papeis() != null
                 && (usuario.papeis().contains(Papel.ADMIN)
                 || usuario.papeis().contains(Papel.CAEX))) {
+            return;
+        }
+
+        if (evento.getCriadoPor() != null
+                && evento.getCriadoPor().getId().equals(usuario.id())) {
             return;
         }
 
