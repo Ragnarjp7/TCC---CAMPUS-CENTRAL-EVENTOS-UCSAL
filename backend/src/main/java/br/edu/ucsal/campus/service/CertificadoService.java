@@ -71,7 +71,7 @@ public class CertificadoService {
             UsuarioAutenticado usuario) {
 
         Evento evento = buscarEvento(eventoId);
-        validarPermissaoEvento(evento, usuario, Permissao.EMITIR_CERTIFICADO);
+        validarPermissaoEvento(evento, usuario, Permissao.REGISTRAR_PRESENCA);
 
         if (evento.getStatus() != Evento.StatusEvento.APROVADO
                 && evento.getStatus() != Evento.StatusEvento.ENCERRADO) {
@@ -137,7 +137,7 @@ public class CertificadoService {
             UsuarioAutenticado usuario) {
 
         Evento evento = buscarEvento(eventoId);
-        validarPermissaoEvento(evento, usuario, Permissao.EMITIR_CERTIFICADO);
+        validarPermissaoEvento(evento, usuario, Permissao.REGISTRAR_PRESENCA);
 
         return certificadoRepository.findByPresencaEventoId(eventoId)
                 .stream()
@@ -165,7 +165,7 @@ public class CertificadoService {
         boolean administrativo = possuiPapelAdministrativo(usuario);
 
         boolean responsavel = eResponsavelPeloEvento(
-                evento, usuario, Permissao.EMITIR_CERTIFICADO);
+                evento, usuario, Permissao.REGISTRAR_PRESENCA);
 
         if (!eDono && !administrativo && !responsavel) {
             throw new ConflitoException(
@@ -192,7 +192,7 @@ public class CertificadoService {
             UsuarioAutenticado usuario) {
 
         Evento evento = buscarEvento(eventoId);
-        validarPermissaoEvento(evento, usuario, Permissao.EMITIR_CERTIFICADO);
+        validarPermissaoEvento(evento, usuario, Permissao.REGISTRAR_PRESENCA);
 
         List<Certificado> pendentes =
                 certificadoRepository

@@ -24,12 +24,12 @@ public class CodigoPresencaController {
     }
 
     @PostMapping("/{eventoId}/codigo-presenca")
-    public ResponseEntity<DTOCodigoPresencaResponse> gerarOuRenovar(
+    public ResponseEntity<DTOCodigoPresencaResponse> gerar(
             @PathVariable Long eventoId,
             @AuthenticationPrincipal UsuarioAutenticado usuario) {
 
         DTOCodigoPresencaResponse resposta =
-                codigoPresencaService.gerarOuRenovar(
+                codigoPresencaService.gerar(
                         eventoId,
                         usuario);
 

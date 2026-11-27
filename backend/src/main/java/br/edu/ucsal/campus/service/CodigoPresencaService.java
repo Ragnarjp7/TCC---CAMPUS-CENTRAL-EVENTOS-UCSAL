@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.security.SecureRandom;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Base64;
 
@@ -48,8 +49,15 @@ public class CodigoPresencaService {
         this.membroLigaRepository = membroLigaRepository;
     }
 
+    /**
+     * Gera o QR Code uma única vez por evento.
+     *
+     * O código só pode ser criado em uma data compreendida entre
+     * dataInicio e dataFim do evento. Se já existir, o mesmo código
+     * é retornado, sem criar outro token ou substituir o anterior.
+     */
     @Transactional
-    public DTOCodigoPresencaResponse gerarOuRenovar(
+    public DTOCodigoPresencaResponse gerar(
             Long eventoId,
             UsuarioAutenticado usuario) {
 
@@ -61,20 +69,25 @@ public class CodigoPresencaService {
         validarPermissao(evento, usuario);
         validarEventoParaGerarCodigo(evento);
 
-        CodigoPresenca codigo = codigoRepository
+        CodigoPresenca codigoExistente = codigoRepository
                 .findByEventoId(eventoId)
-                .orElseGet(CodigoPresenca::new);
+                .orElse(null);
 
+        if (codigoExistente != null) {
+            return DTOCodigoPresencaResponse.de(
+                    codigoExistente,
+                    gerarImagemQrCode(codigoExistente.getToken()));
+        }
+
+        CodigoPresenca codigo = new CodigoPresenca();
         codigo.setEvento(evento);
         codigo.setToken(gerarTokenUnico());
         codigo.setAtivo(true);
         codigo.setDataCriacao(LocalDateTime.now());
 
-        CodigoPresenca codigoSalvo =
-                codigoRepository.save(codigo);
+        CodigoPresenca codigoSalvo = codigoRepository.save(codigo);
 
-        String imagemQrCode =
-                gerarImagemQrCode(codigoSalvo.getToken());
+        String imagemQrCode = gerarImagemQrCode(codigoSalvo.getToken());
 
         return DTOCodigoPresencaResponse.de(
                 codigoSalvo,
@@ -107,6 +120,14 @@ public class CodigoPresencaService {
             throw new ConflitoException(
                     "O período do evento está inválido");
         }
+
+        LocalDate hoje = LocalDate.now();
+
+        if (hoje.isBefore(evento.getDataInicio())
+                || hoje.isAfter(evento.getDataFim())) {
+            throw new ConflitoException(
+                    "O QR Code só pode ser gerado em uma data de realização do evento");
+        }
     }
 
     private void validarPermissao(
@@ -124,6 +145,8 @@ public class CodigoPresencaService {
             return;
         }
 
+        // O criador do evento pode gerar o QR Code mesmo que
+        // não seja membro da liga responsável.
         if (evento.getCriadoPor() != null
                 && evento.getCriadoPor().getId().equals(usuario.id())) {
             return;
