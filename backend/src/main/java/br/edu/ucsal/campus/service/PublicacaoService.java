@@ -433,14 +433,37 @@ public class PublicacaoService {
             Publicacao publicacao,
             UsuarioAutenticado usuario) {
 
+        // CAEX pode excluir qualquer publicação.
         if (usuario.papeis().contains(Papel.CAEX)) {
             return true;
         }
 
+        // O autor pode excluir a própria publicação.
+        if (publicacao.getAutor().getId().equals(usuario.id())) {
+
+            // Para publicações de Liga, o autor precisa continuar
+            // sendo membro ativo e possuir permissão PUBLICAR.
+            if (publicacao.getTipoAutor() == TipoAutorPublicacao.LIGA) {
+                if (publicacao.getLigaAutora() == null) {
+                    return false;
+                }
+
+                validarPublicacaoLiga(
+                        publicacao.getLigaAutora().getId(),
+                        usuario
+                );
+            }
+
+            return true;
+        }
+
+        // Coordenador pode excluir publicações específicas
+        // destinadas ao seu próprio curso.
         if (usuario.papeis().contains(Papel.COORDENADOR)) {
             Long cursoId = buscarCursoDoCoordenador(usuario.id());
 
-            return publicacao.getPublico() == PublicoPublicacao.CURSO_ESPECIFICO
+            return publicacao.getPublico()
+                    == PublicoPublicacao.CURSO_ESPECIFICO
                     && publicacao.getCursoDestino() != null
                     && publicacao.getCursoDestino().getId().equals(cursoId);
         }
