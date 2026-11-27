@@ -93,8 +93,7 @@ public class PublicacaoService {
                 "titulo=" + salva.getTitulo()
                         + "; tipoAutor=" + tipoAutor
                         + "; publico=" + salva.getPublico(),
-                "Publicação criada"
-        );
+                "Publicação criada");
 
         return DTOPublicacaoResponse.de(salva);
     }
@@ -140,8 +139,7 @@ public class PublicacaoService {
                         + "; conteudo=" + conteudoAnterior,
                 "titulo=" + salva.getTitulo()
                         + "; conteudo=" + salva.getConteudo(),
-                "Publicação atualizada"
-        );
+                "Publicação atualizada");
 
         return DTOPublicacaoResponse.de(salva);
     }
@@ -171,8 +169,7 @@ public class PublicacaoService {
                 publicacao.getId(),
                 "ativa=true",
                 "ativa=false",
-                "Publicação removida da visualização do sistema"
-        );
+                "Publicação removida da visualização do sistema");
     }
 
     // RF11 e RF17 - Feed institucional do aluno
@@ -193,12 +190,11 @@ public class PublicacaoService {
                         "Não existe cadastro de aluno vinculado ao usuário"));
 
         return publicacaoRepository.buscarFeedPorCurso(
-                        aluno.getCurso().getId(),
-                        TipoAutorPublicacao.COORDENADOR,
-                        PublicoPublicacao.GERAL,
-                        PublicoPublicacao.CURSO_ESPECIFICO,
-                        pageable
-                )
+                aluno.getCurso().getId(),
+                TipoAutorPublicacao.COORDENADOR,
+                PublicoPublicacao.GERAL,
+                PublicoPublicacao.CURSO_ESPECIFICO,
+                pageable)
                 .map(DTOPublicacaoResponse::de);
     }
 
@@ -211,10 +207,9 @@ public class PublicacaoService {
         validarUsuario(usuario);
 
         return publicacaoRepository.buscarMinhasPublicacoes(
-                        usuario.id(),
-                        StatusMembro.ATIVO,
-                        pageable
-                )
+                usuario.id(),
+                StatusMembro.ATIVO,
+                pageable)
                 .map(DTOPublicacaoResponse::de);
     }
 
@@ -254,13 +249,12 @@ public class PublicacaoService {
 
         if (usuario.papeis().contains(Papel.CAEX)) {
             return publicacaoRepository.pesquisarAdministrativamente(
-                            texto,
-                            filtro.tipoAutor(),
-                            filtro.publico(),
-                            filtro.cursoId(),
-                            filtro.autorId(),
-                            pageable
-                    )
+                    texto,
+                    filtro.tipoAutor(),
+                    filtro.publico(),
+                    filtro.cursoId(),
+                    filtro.autorId(),
+                    pageable)
                     .map(DTOPublicacaoResponse::de);
         }
 
@@ -274,15 +268,14 @@ public class PublicacaoService {
             }
 
             return publicacaoRepository.pesquisarPorCurso(
-                            texto,
-                            filtro.tipoAutor(),
-                            filtro.publico(),
-                            cursoId,
-                            usuario.id(),
-                            PublicoPublicacao.GERAL,
-                            filtro.autorId(),
-                            pageable
-                    )
+                    texto,
+                    filtro.tipoAutor(),
+                    filtro.publico(),
+                    cursoId,
+                    PublicoPublicacao.GERAL,
+                    TipoAutorPublicacao.COORDENADOR,
+                    filtro.autorId(),
+                    pageable)
                     .map(DTOPublicacaoResponse::de);
         }
 
@@ -342,9 +335,9 @@ public class PublicacaoService {
         MembroLiga membro = membroLigaRepository.buscarMembroAtivo(
                 usuario.id(),
                 ligaId,
-                StatusMembro.ATIVO
-        ).orElseThrow(() -> new AccessDeniedException(
-                "Você não é membro ativo desta liga"));
+                StatusMembro.ATIVO).orElseThrow(
+                        () -> new AccessDeniedException(
+                                "Você não é membro ativo desta liga"));
 
         if (membro.getCargo() == null
                 || !membro.getCargo().getPermissoes()
@@ -428,8 +421,7 @@ public class PublicacaoService {
         if (usuario.papeis().contains(Papel.COORDENADOR)) {
             Long cursoId = buscarCursoDoCoordenador(usuario.id());
 
-            return publicacao.getPublico()
-                            == PublicoPublicacao.CURSO_ESPECIFICO
+            return publicacao.getPublico() == PublicoPublicacao.CURSO_ESPECIFICO
                     && publicacao.getCursoDestino() != null
                     && publicacao.getCursoDestino().getId().equals(cursoId);
         }
@@ -448,8 +440,7 @@ public class PublicacaoService {
         if (usuario.papeis().contains(Papel.COORDENADOR)) {
             Long cursoId = buscarCursoDoCoordenador(usuario.id());
 
-            return publicacao.getPublico()
-                            == PublicoPublicacao.CURSO_ESPECIFICO
+            return publicacao.getPublico() == PublicoPublicacao.CURSO_ESPECIFICO
                     && publicacao.getCursoDestino() != null
                     && publicacao.getCursoDestino().getId().equals(cursoId);
         }
